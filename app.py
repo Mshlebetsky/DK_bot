@@ -1,6 +1,7 @@
 import os
 import asyncio
 from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
 
 from dotenv import find_dotenv, load_dotenv
 load_dotenv(find_dotenv())
@@ -22,7 +23,7 @@ from handlers.admin_studios import admin_studios_router
 from logic.cmd_list import private
 
 
-bot = Bot(token=os.getenv('TOKEN'))
+bot = Bot(token=os.getenv('TOKEN'), timeout=60)
 bot.my_admins_list = get_admins_ids()
 
 

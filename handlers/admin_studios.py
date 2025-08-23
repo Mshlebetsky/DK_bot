@@ -1,11 +1,12 @@
 from aiogram import Router, F, types
+from aiogram.enums import ParseMode
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
-from database import orm_query
+import asyncio
 from database.models import Studios
 from logic.scrap_studios import update_all_studios
 from database.orm_query import (
@@ -140,7 +141,7 @@ async def edit_studio_start(callback: CallbackQuery, state: FSMContext, session:
         return
 
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=st.name, callback_data=f"edit_studio_{st.id}")] for st in studios]
+        inline_keyboard=[[InlineKeyboardButton(text=st.name.lower(), callback_data=f"edit_studio_{st.id}")] for st in studios]
     )
     await callback.message.answer("Выберите студию для редактирования:", reply_markup=kb)
 
@@ -202,7 +203,7 @@ async def delete_studio_start(callback: CallbackQuery, session: AsyncSession):
         return
 
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=st.name, callback_data=f"delete_studio_{st.id}")] for st in studios]
+        inline_keyboard=[[InlineKeyboardButton(text=st.name.lower(), callback_data=f"delete_studio_{st.id}")] for st in studios]
     )
     await callback.message.answer("Выберите студию для удаления:", reply_markup=kb)
 
@@ -221,7 +222,7 @@ STUDIOS_PER_PAGE = 8
 def get_studios_keyboard(studios, page: int, total_pages: int):
     keyboard = [
         [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {studio.name}",
+            text=f"{'🆓' if studio.cost == 0 else '💳'} {(studio.name).lower()}",
             callback_data=f"studio_detail:{studio.id}"
         )]
         for studio in studios
@@ -250,16 +251,16 @@ async def list_studios(message_or_callback, session, page: int = 1):
         await message_or_callback.answer("Студии не найдены")
         return
 
-    text = "<b>Список студий:</b>\n\n" + "\n".join([f"▫️ {studio.name}" for studio in studios])
+    text = "Список студий:\n\n" + "\n".join([f"▫️ {studio.name.capitalize()}" for studio in studios])
     keyboard = get_studios_keyboard(studios, page, total_pages)
 
     if isinstance(message_or_callback, types.CallbackQuery):
         try:
-            await message_or_callback.message.edit_text(text, reply_markup=keyboard)
+            await message_or_callback.message.edit_text(text, reply_markup=keyboard, ParseMode='HTML')
         except Exception:
-            await message_or_callback.message.answer(text, reply_markup=keyboard)
+            await message_or_callback.message.answer(text, reply_markup=keyboard, ParseMode='HTML')
     else:
-        await message_or_callback.answer(text, reply_markup=keyboard)
+        await message_or_callback.answer(text, reply_markup=keyboard, ParseMode='HTML')
 
 
 @admin_studios_router.callback_query(F.data.startswith("studios_page:"))
@@ -276,7 +277,7 @@ async def studio_detail_handler(callback: types.CallbackQuery, session: AsyncSes
         await callback.answer("Студия не найдена", show_alert=True)
         return
 
-    caption = f"<b>{studio.name}</b>"
+    caption = f"{studio.name}"
     description = (
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
         f"💰 Стоимость: {studio.cost} руб.\n"
@@ -287,11 +288,11 @@ async def studio_detail_handler(callback: types.CallbackQuery, session: AsyncSes
 
     if studio.img:
         try:
-            await callback.message.answer_photo(studio.img, caption=caption)
+            await callback.message.answer_photo(studio.img, caption=caption, ParseMode='HTML')
         except Exception:
-            await callback.message.answer(caption)
+            await callback.message.answer(caption, ParseMode='HTML')
     else:
-        await callback.message.answer(caption)
+        await callback.message.answer(caption, ParseMode='HTML')
 
     await callback.message.answer(description)
     await callback.answer()
@@ -302,7 +303,7 @@ async def studio_detail_handler(callback: types.CallbackQuery, session: AsyncSes
 async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSession):
     await callback.message.answer("🔄 Запускаю обновление студий, подождите...\nПримерное время обновления ~3 минуты")
     try:
-        data, log_text = update_all_studios()
+        data, log_text = await asyncio.to_thread(update_all_studios)
     except Exception as e:
         await callback.message.answer(f"❌ Ошибка при вызове парсера: {e}")
         return

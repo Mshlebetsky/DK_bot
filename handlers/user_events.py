@@ -2,6 +2,7 @@ from aiogram import Router, types, F
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import orm_get_events, orm_get_event
+from logic.helper import send_entity_card, send_entity_full
 
 
 from aiogram import Router, types, F
@@ -64,26 +65,29 @@ async def paginate_events(callback: types.CallbackQuery, session: AsyncSession):
 
     await callback.message.edit_text("📌 <b>Список мероприятий:</b>", parse_mode="HTML", reply_markup=kb)
 
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
 
 @user_events_router.callback_query(F.data.startswith("event_detail:"))
 async def event_detail(callback: types.CallbackQuery, session: AsyncSession):
     event_id = int(callback.data.split(":")[1])
     event = await orm_get_event(session, event_id)
+
     if not event:
         await callback.answer("❌ Мероприятие не найдено", show_alert=True)
         return
 
-    text = (
-        f"<b>{event.name}</b>\n\n"
-        f"{event.description}\n\n"
-        f"📅 {event.date}\n"
-        f"💰 {'Бесплатное' if event.is_free else 'Платное'}"
+    await send_entity_card(
+        callback,
+        event,
+        back_cb="events_list:1",   # назад к списку
+        detail_cb=f"event_full:{event.id}"
     )
 
-    buttons = [[InlineKeyboardButton(text="⬅️ Назад", callback_data="events_page:1")]]
-    if event.link:
-        buttons.insert(0, [InlineKeyboardButton("🔗 Перейти", url=event.link)])
 
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-
-    await callback.message.edit_text(text, parse_mode="HTML", reply_markup=kb)
+@user_events_router.callback_query(F.data.startswith("event_full:"))
+async def event_full(callback: types.CallbackQuery, session: AsyncSession):
+    event_id = int(callback.data.split(":")[1])
+    event = await orm_get_event(session, event_id)
+    if event:
+        await send_entity_full(callback, event, back_cb="events_list:1")

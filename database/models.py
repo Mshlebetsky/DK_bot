@@ -15,8 +15,8 @@ class News(Base):
     name: Mapped[str] = mapped_column(Text)
     description: Mapped[str] = mapped_column(Text)
     img: Mapped[str] = mapped_column(Text)
-    is_shown: Mapped[bool] = mapped_column(Boolean)
-    announsed: Mapped[bool] = mapped_column(Boolean)
+    is_shown: Mapped[bool] = mapped_column(Boolean, default=True)
+    announsed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 class Events(Base):
     __tablename__ = "events"
@@ -26,10 +26,10 @@ class Events(Base):
     date: Mapped[datetime] = mapped_column(DateTime)
     description: Mapped[str] = mapped_column(Text)
     link: Mapped[str] = mapped_column(Text, nullable=True, default=None)
-    is_free: Mapped[bool] = mapped_column(Boolean)
+    is_free: Mapped[bool] = mapped_column(Boolean, default=False)
     img: Mapped[str] = mapped_column(Text, nullable=True, default=None)
-    is_shown: Mapped[bool] = mapped_column(Boolean)
-    announsed: Mapped[bool] = mapped_column(Boolean)
+    is_shown: Mapped[bool] = mapped_column(Boolean, default=True)
+    announsed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 

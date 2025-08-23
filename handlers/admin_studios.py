@@ -222,7 +222,7 @@ STUDIOS_PER_PAGE = 8
 def get_studios_keyboard(studios, page: int, total_pages: int):
     keyboard = [
         [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {(studio.name).lower()}",
+            text=f"{'🆓' if studio.cost == 0 else '💳'} {(studio.name).capitalize()}",
             callback_data=f"studio_detail:{studio.id}"
         )]
         for studio in studios
@@ -282,8 +282,11 @@ async def studio_detail_handler(callback: types.CallbackQuery, session: AsyncSes
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
         f"💰 Стоимость: {studio.cost} руб.\n"
         f"🎂 Возраст: {studio.age}\n"
-        f"🏷 Категория: {studio.category}\n\n"
+        f"🏷 Категория: {studio.category}\n"
+        f"️⏱️ Обновлено {studio.updated} \n\n"
         f"ℹ️ {studio.description}"
+
+
     )
 
     if studio.img:

@@ -2,7 +2,6 @@ from aiogram import F, types, Router
 from aiogram.filters import CommandStart, Command, or_f
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
-from logic.scrap_news import get_scrap_Word
 from filter.filter import ChatTypeFilter, check_message
 
 from replyes.kbrds import get_keyboard
@@ -91,17 +90,10 @@ async def echo(message: types.Message):
     await message.answer_location(55.908752,37.743256, reply_markup= await Default_Keyboard(message))
 
 
-# @user_private_router.message(or_f(Command('events'),(F.text.lower()[1:] == "афиша мероприятий")))
-# async def echo(message: types.Message):
-#     await message.answer('Афиша', reply_markup= await Default_Keyboard(message))
 
-
-# @user_private_router.message(or_f(Command('studios'),(F.text.lower()[1:] == "студии")))
-# async def echo(message: types.Message):
-#     await message.answer('Студии', reply_markup= await Default_Keyboard(message))
 
 
 
 @user_private_router.message(or_f(Command('news'),(F.text.lower()[1:] == "новости")))
 async def echo(message: types.Message):
-    await message.answer(f'Вот список новостей{get_scrap_Word()}', reply_markup= await Default_Keyboard(message))
+    pass

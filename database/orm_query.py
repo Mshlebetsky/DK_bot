@@ -201,3 +201,12 @@ async def orm_update_news(session: AsyncSession, news_id: int, data: dict):
 async def orm_delete_news(session: AsyncSession, news_id: int):
     await session.execute(delete(News).where(News.id == news_id))
     await session.commit()
+
+
+async def orm_get_event_by_name(session: AsyncSession, name: str):
+    res = await session.execute(select(Events).where(Events.name == name))
+    return res.scalar_one_or_none()
+
+async def orm_get_news_by_name(session: AsyncSession, name: str):
+    res = await session.execute(select(News).where(News.name == name))
+    return res.scalar_one_or_none()

@@ -15,7 +15,6 @@ from handlers.user_private import user_private_router
 from handlers.user_studios import user_studios_router
 from handlers.admin_panel import user_router, admin_router
 from handlers.admin_news import admin_news_router
-# from handlers.admin_news import95 admin_router
 from handlers.admin_events import admin_events_router
 from handlers.user_events import user_events_router
 from handlers.admin_studios import admin_studios_router

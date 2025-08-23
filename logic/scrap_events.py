@@ -1,16 +1,13 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import time
-import selenium
-from selenium.webdriver import Chrome
-from selenium.webdriver import Firefox
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from datetime import datetime
 
-AFISHA_URL = "https://xn----8sbknn9c9d.xn--p1ai/afisha/"
+def update_all_events():
+    url = "https://xn----8sbknn9c9d.xn--p1ai/afisha/"
 
-
-def fetch_events():
     options = Options()
     #     options.add_argument("--headless=new")
     #     options.add_argument("--no-sandbox")
@@ -24,103 +21,58 @@ def fetch_events():
     )
 
     driver = webdriver.Chrome(options=options)
-    driver.get(AFISHA_URL)
+    driver.get(url)
     time.sleep(4)
 
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
     time.sleep(4)
 
-    try:
+    start_time = time.time()
+    data = {}
+    error_counter = 0
+    items = driver.find_element(By.CLASS_NAME, 'tabs-content').find_element(By.CLASS_NAME, 'flex').find_elements(
+        By.CLASS_NAME, 'b-event__slide-item')
+    for item in items:
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-        time.sleep(0.3)
-        driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.HOME)
-    except:
-        print('error with pressing button')
-        time.sleep(1)
 
-    net = driver.find_element(By.CLASS_NAME, 'tabs-content').find_elements(By.CLASS_NAME, 'flex')[0].find_elements(
-        By.CSS_SELECTOR, 'div')[0::4]
-    events_list = []
-
-    for element in net:
-
-        status = True
-
-        time.sleep(1)
-        if element.text.split('\n')[2] == 'БЕСПЛАТНО':
-            event_free = 'БЕСПЛАТНО'
-        else:
-            event_free = 'ПЛАТНО'
-
+        time.sleep(2)
         try:
-            element.find_element(By.CSS_SELECTOR, 'a.b-event__slide-link.js-load-info').click()
+            item.find_elements(By.TAG_NAME, 'a')[0].click()
         except:
-            print(f'error on attempt click selector')
-            status = False
+            print('error')
             continue
-        time.sleep(1)
-
+        time.sleep(2)
         try:
-            if event_free == 'БЕСПЛАТНО':
-                event_link = False
-            else:
-                event_link = driver.find_element(By.CLASS_NAME, 'modal_more_info').find_element(By.CLASS_NAME,
-                                                                                                'button-link.abiframelnk').get_attribute(
-                    'href')
+            main_info = driver.find_element(By.ID, 'hidden-content-2')
+
+            name = main_info.find_element(By.CLASS_NAME, 'title').text
+            event_date = main_info.find_element(By.CLASS_NAME, 'modal_more_calendar').find_element(By.TAG_NAME,
+                                                                                                   'span').text
+            description = main_info.find_element(By.CLASS_NAME, 'modal_more_text').text
+            event_time = main_info.find_element(By.CLASS_NAME, 'modal_more_time').find_element(By.TAG_NAME, 'span').text
+            img = main_info.find_element(By.CLASS_NAME, 'modal_more_image').find_element(By.TAG_NAME,
+                                                                                         'img').get_attribute('src')
+            link = main_info.find_element(By.CLASS_NAME, 'button-link.abiframelnk').get_attribute('href')
+
+            month = {
+                "ЯНВ": 1, "ФЕВ": 2, "МАР": 3, "АПР": 4,
+                "МАЙ": 5, "ИЮН": 6, "ИЮЛ": 7, "АВГ": 8,
+                "СЕН": 9, "ОКТ": 10, "НОЯ": 11, "ДЕК": 12,
+            }
+            mon, day, year = event_date.replace(',', '').split(' ')
+            hour, minutes = event_time.split(':')
+            date = datetime(int(year), int(month[mon.upper()]), int(day), int(hour), int(minutes))
+
+            information = [date, description, img, link]
+            data[name] = information
+
         except:
-            status = False
-            print('error with link')
-            continue
+            error_counter += 1
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    text = f"Обновление завершено за {elapsed_time} секунд"
+    if error_counter > 0:
+        text += f"При обновлении было пропущено {error_counter} мероприятий"
+    driver.close()
 
-        try:
-            event_name = driver.find_element(By.CLASS_NAME, 'fancybox-stage').find_element(By.CLASS_NAME, 'title').text
-        except:
-            status = False
-            print(f'error on  attempt | name')
-            continue
-
-        try:
-            event_date = driver.find_element(By.CLASS_NAME, 'fancybox-stage').find_element(By.CLASS_NAME,
-                                                                                           'modal_more_calendar').find_element(
-                By.TAG_NAME, 'span').text
-        except:
-            status = False
-            print(f'error on attempt date')
-            continue
-
-        try:
-            event_time = driver.find_element(By.CLASS_NAME, 'fancybox-stage').find_element(By.CLASS_NAME,
-                                                                                           'modal_more_time').find_element(
-                By.TAG_NAME, 'span').text
-        except:
-            status = False
-            print(f'error on  attempt time')
-            continue
-
-        try:
-            event_full_description = driver.find_element(By.CLASS_NAME, 'fancybox-stage').find_element(By.CLASS_NAME,
-                                                                                                       'modal_more_text').text
-        except:
-            status = False
-            print(f'error on  attempt description')
-            continue
-
-        try:
-            driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-        except:
-            status = False
-            print(f'error on  attempt closing')
-            continue
-
-        time.sleep(1)
-        event = []
-        event = [event_name, event_date, event_time, event_free, event_link, event_full_description]
-        if status:
-            events_list.append(event)
-    #         print(f'{event_date}\n{event_name}\n{event_time}')
-    driver.quit()
-
-    return events_list
-
-
-# fetch_events()
+    return data, text

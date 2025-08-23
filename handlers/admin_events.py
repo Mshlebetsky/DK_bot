@@ -1,234 +1,263 @@
-from aiogram import Router, types, F
-from aiogram.filters import StateFilter
-from aiogram.fsm.state import StatesGroup, State
+from aiogram import Router, F, types
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.state import StatesGroup, State
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.orm_query import (
-    orm_add_event, orm_get_events, orm_get_event,
-    orm_update_event, orm_delete_event
-)
-from handlers.user_private import Admin_Default_KBRD
-from replyes.kbrds import get_keyboard
-from aiogram.filters import Command, or_f
+from sqlalchemy import select, func
 from datetime import datetime
+
+from database.models import Events
+from database.orm_query import (
+    orm_add_event,
+    orm_update_event,
+    orm_delete_event,
+    orm_get_events,
+    orm_get_event,
+    orm_get_event_by_name
+)
+from logic.scrap_events import update_all_events
+
 admin_events_router = Router()
 
-
-# Меню
-
-
-studio_buttons= [
-    "➕ Добавить мероприятие",
-    "✏️ Изменить мероприятие",
-    "❌ Удалить мероприятие",
-    "📋 Все мероприятия",
-    "🔄Обновить все мероприятия",
-    "🛠Панель администратора"
-]
-admin_events_kbrd = get_keyboard(*studio_buttons, placeholder='',sizes=(3,3))
-
-@admin_events_router.message(or_f(Command('admin_studios'), F.text == 'Редактировать Афишу'))
-async def admin_studios_menu(message: types.Message):
-    try:
-        await state.clear()
-    except:
-        pass
-    await message.answer('Админ: Студии\nДоступно: /studios_list, /studio_add, /studio_del <id>, /studio_edit <id>',
-                         reply_markup= admin_events_kbrd)
-
-
-# FSM для добавления/редактирования
-class EventForm(StatesGroup):
+# --- FSM ---
+class AddEventFSM(StatesGroup):
     name = State()
-    description = State()
     date = State()
+    description = State()
     link = State()
-    is_free = State()
     img = State()
-    is_shown = State()
-    announsed = State()
-    confirm = State()
 
-# ➕ Добавление мероприятия
-@admin_events_router.message(F.text == "➕ Добавить мероприятие")
-async def add_event(message: types.Message, state: FSMContext):
-    await state.set_state(EventForm.name)
-    await message.answer("Введите название мероприятия:")
+class EditEventFSM(StatesGroup):
+    id = State()
+    field = State()
+    value = State()
 
-
-@admin_events_router.message(EventForm.name)
-async def set_name(message: types.Message, state: FSMContext):
-    await state.update_data(name=message.text)
-    await state.set_state(EventForm.description)
-    await message.answer("Введите описание мероприятия:")
-
-
-@admin_events_router.message(EventForm.description)
-async def set_description(message: types.Message, state: FSMContext):
-    await state.update_data(description=message.text)
-    await state.set_state(EventForm.date)
-    await message.answer("Введите дату мероприятия (в формате ДД.ММ.ГГГГ ЧЧ:ММ):")
-
-
-
-
-@admin_events_router.message(EventForm.date)
-async def set_event_date(message: types.Message, state: FSMContext):
-    try:
-        # Пробуем распарсить в формате 31.12.2025 18:30
-        event_date = datetime.strptime(message.text.strip(), "%d.%m.%Y %H:%M")
-        await state.update_data(date=event_date)   # <-- сохраняем объект datetime
-        await message.answer("Введите ссылку на мероприятие (или '-' если нет):")
-        await state.set_state(EventForm.link)
-    except ValueError:
-        await message.answer("⚠️ Неверный формат даты!\nПопробуй так: 31.12.2025 18:30")
-
-
-@admin_events_router.message(EventForm.link)
-async def set_link(message: types.Message, state: FSMContext):
-    link = None if message.text.strip() == "-" else message.text.strip()
-    await state.update_data(link=link)
-    await state.set_state(EventForm.is_free)
-    await message.answer("Мероприятие бесплатное? (да/нет)")
-
-
-@admin_events_router.message(EventForm.is_free)
-async def set_is_free(message: types.Message, state: FSMContext):
-    is_free = message.text.lower() in ["да", "yes", "y", "true", "1"]
-    await state.update_data(is_free=is_free)
-    await state.set_state(EventForm.img)
-    await message.answer("Пришлите ссылку на изображение мероприятия (или '-' если нет):")
-
-
-@admin_events_router.message(EventForm.img)
-async def set_img(message: types.Message, state: FSMContext):
-    img = None if message.text.strip() == "-" else message.text.strip()
-    await state.update_data(img=img)
-    await state.set_state(EventForm.is_shown)
-    await message.answer("Показывать мероприятие пользователям? (да/нет)")
-
-
-@admin_events_router.message(EventForm.is_shown)
-async def set_is_shown(message: types.Message, state: FSMContext):
-    is_shown = message.text.lower() in ["да", "yes", "y", "true", "1"]
-    await state.update_data(is_shown=is_shown)
-    await state.set_state(EventForm.announsed)
-    await message.answer("Мероприятие анонсировано? (да/нет)")
-
-
-@admin_events_router.message(EventForm.announsed)
-async def set_announsed(message: types.Message, state: FSMContext, session: AsyncSession):
-    announsed = message.text.lower() in ["да", "yes", "y", "true", "1"]
-    await state.update_data(announsed=announsed)
-
-    data = await state.get_data()
-    text = (
-        f"<b>{data['name']}</b>\n"
-        f"{data["description"]}\n\n"
-        f"📅 {data['date']}\n"
-        f"🔗 {data['link'] if data['link'] else '—'}\n"
-        f"💰 {'Бесплатное' if data['is_free'] else 'Платное'}\n"
-        f"👁 {'Показывается' if data['is_shown'] else 'Скрыто'} | "
-        f"📢 {'Анонсировано' if data['announsed'] else 'Не анонсировано'}"
-    )
-    await message.answer(text, parse_mode="HTML")
-    await state.set_state(EventForm.confirm)
-    await message.answer("Подтвердить добавление?")
-
-@admin_events_router.message(EventForm.confirm)
-async def confirm_add(message: types.Message, state: FSMContext, session: AsyncSession):
-    announsed = message.text.lower() in ["да", "yes", "y", "true", "1"]
-    if announsed:
-        data = await state.get_data()
-        event = await orm_add_event(session, data)
-        await state.clear()
-
-        text = (
-            f"✅ Мероприятие добавлено!\n\n"
-            f"<b>{event.name}</b>\n"
-            f"{event.description}\n\n"
-            f"📅 {event.date}\n"
-            f"🔗 {event.link if event.link else '—'}\n"
-            f"💰 {'Бесплатное' if event.is_free else 'Платное'}\n"
-            f"👁 {'Показывается' if event.is_shown else 'Скрыто'} | "
-            f"📢 {'Анонсировано' if event.announsed else 'Не анонсировано'}"
-        )
-        await message.answer(text, parse_mode="HTML", reply_markup=admin_events_kbrd)
-    else:
-        await state.clear()
-        await message.answer(f'Добавление отменено', reply_markup=admin_events_kbrd)
-
-# 📋 Список мероприятий
-@admin_events_router.message(F.text == "📋 Все мероприятия")
-async def list_events(message: types.Message, session: AsyncSession):
-    events = await orm_get_events(session)
-    if not events:
-        await message.answer("❌ Мероприятий пока нет", reply_markup=admin_events_kbrd)
-        return
-
-    text = "📌 <b>Список мероприятий:</b>\n\n"
-    for ev in events:
-        text += f"ID: {ev.id} | {ev.name} ({ev.date.day}\t {ev.date.month})\n"
-
-    await message.answer(text, parse_mode="HTML")
-
-
-# 🔄 Редактирование мероприятия
-class EditEventForm(EventForm):
+class DeleteEventFSM(StatesGroup):
     id = State()
 
+# --- Клавиатуры ---
+def get_admin_events_kb():
+    buttons = [
+        [InlineKeyboardButton(text="➕ Добавить событие", callback_data="add_event")],
+        [InlineKeyboardButton(text="✏️ Изменить событие", callback_data="edit_event")],
+        [InlineKeyboardButton(text="🗑 Удалить событие", callback_data="delete_event")],
+        [InlineKeyboardButton(text="📋 Список событий", callback_data="list_events")],
+        [InlineKeyboardButton(text="🔄 Обновить все события", callback_data="update_all_events")],
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-@admin_events_router.message(F.text == "✏️ Изменить мероприятие")
-async def choose_event(message: types.Message, state: FSMContext, session: AsyncSession):
+# --- Меню ---
+@admin_events_router.message(F.text == "Редактировать Афишу")
+async def admin_events_menu(message: Message):
+    await message.answer("Меню управления событиями:", reply_markup=get_admin_events_kb())
+
+# --- Добавление ---
+@admin_events_router.callback_query(F.data == "add_event")
+async def add_event_start(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(AddEventFSM.name)
+    await callback.message.answer("Введите название события:")
+
+@admin_events_router.message(AddEventFSM.name)
+async def add_event_name(message: Message, state: FSMContext):
+    await state.update_data(name=message.text)
+    await state.set_state(AddEventFSM.date)
+    await message.answer("Введите дату события (в формате ГГГГ-ММ-ДД ЧЧ:ММ):")
+
+@admin_events_router.message(AddEventFSM.date)
+async def add_event_date(message: Message, state: FSMContext):
+    try:
+        date = datetime.strptime(message.text, "%Y-%m-%d %H:%M")
+    except ValueError:
+        await message.answer("⚠ Неверный формат даты. Введите в виде: 2025-08-20 18:30")
+        return
+    await state.update_data(date=date)
+    await state.set_state(AddEventFSM.description)
+    await message.answer("Введите описание события:")
+
+@admin_events_router.message(AddEventFSM.description)
+async def add_event_description(message: Message, state: FSMContext):
+    await state.update_data(description=message.text)
+    await state.set_state(AddEventFSM.link)
+    await message.answer("Введите ссылку (или '-' если нет):")
+
+@admin_events_router.message(AddEventFSM.link)
+async def add_event_link(message: Message, state: FSMContext):
+    link = None if message.text == "-" else message.text
+    await state.update_data(link=link)
+    await state.set_state(AddEventFSM.img)
+    await message.answer("Отправьте ссылку на изображение (или '-' если нет):")
+
+@admin_events_router.message(AddEventFSM.img)
+async def add_event_img(message: Message, state: FSMContext, session: AsyncSession):
+    img = None if message.text == "-" else message.text
+    await state.update_data(img=img)
+    data = await state.get_data()
+    await orm_add_event(session, data)
+    await state.clear()
+    await message.answer("✅ Событие успешно добавлено!", reply_markup=get_admin_events_kb())
+
+# --- Редактирование ---
+@admin_events_router.callback_query(F.data == "edit_event")
+async def edit_event_start(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     events = await orm_get_events(session)
     if not events:
-        await message.answer("❌ Нет мероприятий для редактирования")
+        await callback.message.answer("❌ Нет событий для изменения.")
+        return
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=ev.name, callback_data=f"edit_event_{ev.id}")] for ev in events]
+    )
+    await callback.message.answer("Выберите событие для редактирования:", reply_markup=kb)
+
+@admin_events_router.callback_query(F.data.startswith("edit_event_"))
+async def edit_event_choose(callback: CallbackQuery, state: FSMContext):
+    event_id = int(callback.data.split("_")[2])
+    await state.update_data(id=event_id)
+    await state.set_state(EditEventFSM.field)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Название", callback_data="field_name")],
+        [InlineKeyboardButton(text="Дата", callback_data="field_date")],
+        [InlineKeyboardButton(text="Описание", callback_data="field_description")],
+        [InlineKeyboardButton(text="Ссылка", callback_data="field_link")],
+        [InlineKeyboardButton(text="Изображение", callback_data="field_img")],
+    ])
+    await callback.message.answer("Выберите поле для изменения:", reply_markup=kb)
+
+@admin_events_router.callback_query(F.data.startswith("field_"), EditEventFSM.field)
+async def edit_event_field(callback: CallbackQuery, state: FSMContext):
+    field = callback.data.replace("field_", "")
+    await state.update_data(field=field)
+    await state.set_state(EditEventFSM.value)
+    await callback.message.answer(f"Введите новое значение для поля {field}:")
+
+@admin_events_router.message(EditEventFSM.value)
+async def edit_event_value(message: Message, state: FSMContext, session: AsyncSession):
+    data = await state.get_data()
+    field, value, event_id = data["field"], message.text, data["id"]
+
+    if field == "date":
+        try:
+            value = datetime.strptime(value, "%Y-%m-%d %H:%M")
+        except ValueError:
+            await message.answer("⚠ Неверный формат даты. Введите в виде: 2025-08-20 18:30")
+            return
+    if field in ("link", "img") and value == "-":
+        value = None
+
+    await orm_update_event(session, event_id, {field: value})
+    await state.clear()
+    await message.answer("✅ Событие успешно изменено!", reply_markup=get_admin_events_kb())
+
+# --- Удаление ---
+@admin_events_router.callback_query(F.data == "delete_event")
+async def delete_event_start(callback: CallbackQuery, session: AsyncSession):
+    events = await orm_get_events(session)
+    if not events:
+        await callback.message.answer("❌ Нет событий для удаления.")
+        return
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=ev.name, callback_data=f"delete_event_{ev.id}")] for ev in events]
+    )
+    await callback.message.answer("Выберите событие для удаления:", reply_markup=kb)
+
+@admin_events_router.callback_query(F.data.startswith("delete_event_"))
+async def delete_event_confirm(callback: CallbackQuery, session: AsyncSession):
+    event_id = int(callback.data.split("_")[2])
+    await orm_delete_event(session, event_id)
+    await callback.message.answer("🗑 Событие удалено!", reply_markup=get_admin_events_kb())
+
+# --- Список событий ---
+EVENTS_PER_PAGE = 8
+
+def get_events_keyboard(events, page: int, total_pages: int):
+    keyboard = [
+        [InlineKeyboardButton(text=ev.name, callback_data=f"event_detail:{ev.id}:{page}")] for ev in events
+    ]
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton(text="⏮ Назад", callback_data=f"events_page:{page-1}"))
+    if page < total_pages:
+        nav.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"events_page:{page+1}"))
+    if nav:
+        keyboard.append(nav)
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+@admin_events_router.callback_query(F.data == "list_events")
+async def list_events(callback: CallbackQuery, session: AsyncSession, page: int = 1):
+    PAGE_SIZE = EVENTS_PER_PAGE
+    offset = (page - 1) * PAGE_SIZE
+    events = (await session.execute(select(Events).offset(offset).limit(PAGE_SIZE))).scalars().all()
+    total = (await session.execute(select(func.count(Events.id)))).scalar_one()
+    total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
+
+    if not events:
+        await callback.message.answer("События не найдены")
         return
 
-    text = "Введите ID мероприятия для изменения:\n\n"
-    for ev in events:
-        text += f"ID: {ev.id} | {ev.name} | {ev.date}\n"
+    text = "<b>Список событий:</b>\n\n" + "\n".join([f"▫️ {ev.name}" for ev in events])
+    await callback.message.edit_text(text, reply_markup=get_events_keyboard(events, page, total_pages))
 
-    await state.set_state(EditEventForm.id)
-    await message.answer(text)
+@admin_events_router.callback_query(F.data.startswith("events_page:"))
+async def events_page_handler(callback: CallbackQuery, session: AsyncSession):
+    page = int(callback.data.split(":")[1])
+    await list_events(callback, session, page)
 
-
-@admin_events_router.message(EditEventForm.id)
-async def start_edit(message: types.Message, state: FSMContext, session: AsyncSession):
-    if type(message.text)  is int:
-        await message.answer("❌ Введите корректный ID!")
-        return
-    event_id = int(message.text)
+@admin_events_router.callback_query(F.data.startswith("event_detail:"))
+async def event_detail_handler(callback: CallbackQuery, session: AsyncSession):
+    event_id = int(callback.data.split(":")[1])
     event = await orm_get_event(session, event_id)
     if not event:
-        await message.answer("❌ Мероприятие не найдено")
+        await callback.answer("Событие не найдено", show_alert=True)
         return
 
-    await state.update_data(id=event_id)
-    await state.set_state(EditEventForm.name)
-    await message.answer(f"Изменяем мероприятие: <b>{event.name}</b>\n\nВведите новое название:", parse_mode="HTML")
+    text = (
+        f"<b>{event.name}</b>\n\n"
+        f"📅 Дата: {event.date.strftime('%d.%m.%Y %H:%M') if event.date else '—'}\n"
+        f"🔗 Ссылка: {event.link or '—'}\n\n"
+        f"ℹ️ {event.description}"
+    )
+    if event.img:
+        try:
+            await callback.message.answer_photo(event.img, caption=event.name[:100])
+        except Exception:
+            await callback.message.answer(f"📷 <b>{event.name}</b>")
+    await callback.message.answer(text)
+    await callback.answer()
 
-
-# ❌ Удаление
-@admin_events_router.message(F.text == "❌ Удалить мероприятие")
-async def delete_event_start(message: types.Message, session: AsyncSession, state: FSMContext):
-    events = await orm_get_events(session)
-    if not events:
-        await message.answer("❌ Нет мероприятий для удаления")
+# --- Обновление всех ---
+@admin_events_router.callback_query(F.data == "update_all_events")
+async def update_all_events_handler(callback: CallbackQuery, session: AsyncSession):
+    await callback.message.answer("🔄 Запускаю обновление событий, подождите...")
+    try:
+        data, log_text = update_all_events()
+    except Exception as e:
+        await callback.message.answer(f"❌ Ошибка при парсинге: {e}")
         return
 
-    text = "Введите ID мероприятия для удаления:\n\n"
-    for ev in events:
-        text += f"ID: {ev.id} | {ev.name}\n"
+    updated, added = 0, 0
+    for name, values in data.items():
+        try:
+            event_date, description, img, link = values
+        except ValueError:
+            continue
 
-    await state.set_state("delete_event_id")
-    await message.answer(text)
+        event = await orm_get_event_by_name(session, name)
+        if event:
+            event.date = event_date
+            event.description = description
+            event.img = img
+            event.link = link
+            updated += 1
+        else:
+            new_event = Events(
+                name=name, date=event_date, description=description,
+                img=img, link=link, is_shown=True
+            )
+            session.add(new_event)
+            added += 1
+    await session.commit()
 
-
-@admin_events_router.message(F.text.regexp(r"^\d+$"), StateFilter("delete_event_id"))
-async def confirm_delete(message: types.Message, state: FSMContext, session: AsyncSession):
-    event_id = int(message.text)
-    await orm_delete_event(session, event_id)
-    await state.clear()
-    await message.answer("✅ Мероприятие удалено")
+    await callback.message.answer(
+        f"{log_text}\n\n🔄 Обновлено: {updated}\n➕ Добавлено: {added}",
+        reply_markup=get_admin_events_kb()
+    )

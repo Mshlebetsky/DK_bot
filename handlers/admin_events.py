@@ -1,4 +1,5 @@
 from aiogram import Router, F, types
+from aiogram.enums import ParseMode
 from aiogram.types import (
     Message, CallbackQuery,
     InlineKeyboardButton, InlineKeyboardMarkup
@@ -247,30 +248,42 @@ def get_events_keyboard(events, page: int, total_pages: int):
 async def list_events(message_or_callback, session: AsyncSession, page: int = 1):
     offset = (page - 1) * EVENTS_PER_PAGE
     events = (await session.execute(
-        select(Events).offset(offset).limit(EVENTS_PER_PAGE).order_by(Events.date.desc())
+        select(Events).order_by(Events.date.desc()).offset(offset).limit(EVENTS_PER_PAGE)
     )).scalars().all()
     total = (await session.execute(select(func.count(Events.id)))).scalar_one()
-    total_pages = (total + EVENTS_PER_PAGE - 1) // EVENTS_PER_PAGE
+    total_pages = max(1, (total + EVENTS_PER_PAGE - 1) // EVENTS_PER_PAGE)
 
     if not events:
+        target = message_or_callback.message if isinstance(message_or_callback, types.CallbackQuery) else message_or_callback
+        await target.answer("События не найдены")
         if isinstance(message_or_callback, types.CallbackQuery):
-            await message_or_callback.message.edit_text("События не найдены")
-        else:
-            await message_or_callback.answer("События не найдены")
+            await message_or_callback.answer()
         return
 
-    text = "<b>Список событий:</b>\n\n"
-    for ev in events:
-        text += f"▫️ {ev.name}\n"
-
+    text = "<b>Список событий:</b>\n\n" + "\n".join(f"▫️ {ev.name}" for ev in events)
     kb = get_events_keyboard(events, page, total_pages)
 
     if isinstance(message_or_callback, types.CallbackQuery):
-        await message_or_callback.message.edit_text(text, reply_markup=kb)
+        msg = message_or_callback.message
+        try:
+            if msg.text:  # обычный текст — редактируем текст
+                await msg.edit_text(text, reply_markup=kb, ParseMode="HTML")
+            elif msg.caption is not None:
+                # это медиа — надёжнее удалить и отправить новый список как текст
+                try:
+                    await msg.delete()
+                except Exception:
+                    pass
+                await msg.answer(text, reply_markup=kb)
+            else:
+                # на всякий случай
+                await msg.answer(text, reply_markup=kb)
+        except Exception:
+            # общий фоллбек
+            await msg.answer(text, reply_markup=kb)
         await message_or_callback.answer()
     else:
         await message_or_callback.answer(text, reply_markup=kb)
-
 
 # --- Хендлеры ---
 
@@ -300,24 +313,26 @@ async def event_card_handler(callback: CallbackQuery, session: AsyncSession):
         await callback.answer("Событие не найдено", show_alert=True)
         return
 
-    short_desc = (event.description[:500] + "...") if len(event.description) > 500 else event.description
-    text = f"<b>{event.name}</b>\n\n🗓 {event.date:%d.%m.%Y}\n\n{short_desc}"
+    desc = event.description or "Нет описания"
+    short_desc = (desc[:500] + "…") if len(desc) > 500 else desc
+    date_line = f"🗓 {event.date:%d.%m.%Y}\n\n" if getattr(event, "date", None) else ""
+    text = f"<b>{event.name}</b>\n\n{date_line}{short_desc}"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
         [InlineKeyboardButton(text="ℹ️ Подробнее", callback_data=f"event_detail:{event.id}")]
     ])
 
-    if event.img:
-        try:
-            await callback.message.edit_media(
-                types.InputMediaPhoto(media=event.img, caption=text, parse_mode="HTML"),
-                reply_markup=kb
-            )
-        except Exception:
-            await callback.message.edit_text(text, reply_markup=kb)
+    # удаляем список и шлём карточку
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
+    if getattr(event, "img", None):
+        await callback.message.answer_photo(event.img, caption=text, reply_markup=kb)
     else:
-        await callback.message.edit_text(text, reply_markup=kb)
+        await callback.message.answer(text, reply_markup=kb)
 
     await callback.answer()
 

@@ -1,13 +1,9 @@
 from aiogram import Router, F, types
-from aiogram.enums import ParseMode
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
-
 import asyncio
-from database.models import Studios
 from logic.scrap_studios import update_all_studios
 from database.orm_query import (
     orm_add_studio,
@@ -17,8 +13,6 @@ from database.orm_query import (
     orm_get_studio,
     orm_get_studio_by_name,
 )
-from logic.helper import close_item_card, send_item_card
-
 
 admin_studios_router = Router()
 
@@ -266,118 +260,3 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
         f"➕ Добавлено: {added}",
         reply_markup=get_admin_studios_kb()
     )
-
-
-# --- Список студий ---
-
-STUDIOS_PER_PAGE = 8
-
-# ---------- Клавиатуры ----------
-def get_studios_keyboard(studios, page: int, total_pages: int):
-    keyboard = [
-        [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {studio.name.capitalize()}",
-            callback_data=f"studio_card:{studio.id}:{page}"
-        )]
-        for studio in studios
-    ]
-
-    nav_buttons = []
-    if page > 1:
-        nav_buttons.append(InlineKeyboardButton(text="⏮ Назад", callback_data=f"studios_page:{page-1}"))
-    if page < total_pages:
-        nav_buttons.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"studios_page:{page+1}"))
-    if nav_buttons:
-        keyboard.append(nav_buttons)
-
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-
-def get_studio_detail_keyboard(studio: Studios, page: int):
-    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"studios_page:{page}")]]
-    link = 'https://дк-яуза.рф/studii/'
-    buttons.append([InlineKeyboardButton(text="🔗 Перейти на сайт", url=link)])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-# ---------- Хендлеры ----------
-@admin_studios_router.callback_query(F.data == "list_studios")
-async def list_studios(callback: CallbackQuery, session: AsyncSession, page: int = 1):
-    offset = (page - 1) * STUDIOS_PER_PAGE
-    studios = (await session.execute(
-        select(Studios).offset(offset).limit(STUDIOS_PER_PAGE)
-    )).scalars().all()
-
-    total = (await session.execute(select(func.count(Studios.id)))).scalar_one()
-    total_pages = (total + STUDIOS_PER_PAGE - 1) // STUDIOS_PER_PAGE
-
-    if not studios:
-        await callback.message.edit_text("Студии не найдены")
-        return
-
-    text = "📋 <b>Список студий:</b>\n\n"
-    keyboard = get_studios_keyboard(studios, page, total_pages)
-
-    await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-    await callback.answer()
-
-
-@admin_studios_router.callback_query(F.data.startswith("studios_page:"))
-async def studios_page_handler(callback: CallbackQuery, session: AsyncSession):
-    page = int(callback.data.split(":")[1])
-    await list_studios(callback, session, page)
-
-
-@admin_studios_router.callback_query(F.data.startswith("studio_card:"))
-async def studio_card_handler(callback: CallbackQuery, session: AsyncSession):
-    studio_id, page = map(int, callback.data.split(":")[1:])
-    studio = await orm_get_studio(session, studio_id)
-    if not studio:
-        await callback.answer("Студия не найдена", show_alert=True)
-        return
-
-    description = studio.description or "Нет описания"
-    short_desc = description[:500] + ("…" if len(description) > 500 else "")
-
-
-    await send_item_card(
-        callback,
-        studio_id,
-        page,
-        title=studio.name,
-        short_text=short_desc,
-        img=studio.img,
-        detail_callback="studio_detail"
-    )
-
-@admin_studios_router.callback_query(F.data.startswith("close_card:"))
-async def close_card_handler(callback: CallbackQuery):
-    await close_item_card(callback)
-
-
-@admin_studios_router.callback_query(F.data.startswith("studio_detail:"))
-async def studio_detail_handler(callback: CallbackQuery, session: AsyncSession):
-    studio_id, page = map(int, callback.data.split(":")[1:])
-    studio = await orm_get_studio(session, studio_id)
-    if not studio:
-        await callback.answer("Студия не найдена", show_alert=True)
-        return
-
-    text = (
-        f"<b>{studio.name}</b>\n\n"
-        f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
-        f"💰 Стоимость: {studio.cost} руб.\n"
-        f"🎂 Возраст: {studio.age}\n"
-        f"🏷 Категория: {studio.category}\n"
-        f"⏱ Обновлено: {studio.updated}\n\n"
-        f"ℹ️ {studio.description or 'Нет описания'}"
-    )
-
-    kb = get_studio_detail_keyboard(studio, page)
-
-    if studio.img:
-        await callback.message.edit_caption(caption=text[:1024], reply_markup=kb, parse_mode="HTML")
-    else:
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-
-    await callback.answer()

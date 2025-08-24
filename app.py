@@ -14,13 +14,14 @@ from filter.filter import check_message, get_admins_ids
 from aiogram.enums import ParseMode
 
 from handlers.user_private import user_private_router
-from handlers.user_studios import user_studios_router
+# from handlers.user_studios import user_studios_router
 from handlers.admin_panel import user_router, admin_router
 from handlers.admin_news import admin_news_router
 from handlers.admin_events import admin_events_router
-from handlers.user_events import user_events_router
+# from handlers.user_events import user_events_router
 from handlers.admin_studios import admin_studios_router
-
+from handlers.Studio_list import studios_router
+from handlers.Event_list import event_router
 from logic.cmd_list import private
 
 
@@ -35,12 +36,13 @@ dp = Dispatcher()
 dp.include_router(user_private_router)
 dp.include_router(user_router)
 dp.include_router(admin_router)
-dp.include_router(user_events_router)
+# dp.include_router(user_events_router)
 dp.include_router(admin_events_router)
 dp.include_router(admin_news_router)
 dp.include_router(admin_studios_router)
-dp.include_router(user_studios_router)
-
+# dp.include_router(user_studios_router)
+dp.include_router(event_router)
+dp.include_router(studios_router)
 
 async def on_startup(bot):
     run_param = False

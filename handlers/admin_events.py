@@ -1,9 +1,5 @@
 from aiogram import Router, F, types
-from aiogram.enums import ParseMode
-from aiogram.types import (
-    Message, CallbackQuery,
-    InlineKeyboardButton, InlineKeyboardMarkup
-)
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +12,6 @@ from database.orm_query import (
     orm_get_event, orm_get_events
 )
 from logic.scrap_events import update_all_events
-from logic.helper import send_entity_card, send_entity_full
 
 admin_events_router = Router()
 

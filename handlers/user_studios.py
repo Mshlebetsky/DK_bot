@@ -16,7 +16,7 @@ async def show_studios(message: types.Message, session: AsyncSession):
     await list_studios(message,session)
     # await  message.answer('____________',callback_data="list_studios")
 # ===============================
-# СПИСОК СТУДИЙ
+# СПИСОК СТУДИЙ/
 # ===============================
 STUDIOS_PER_PAGE = 8
 

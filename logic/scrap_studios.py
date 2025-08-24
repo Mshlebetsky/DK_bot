@@ -1,9 +1,6 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import time
-import selenium
-from selenium.webdriver import Chrome
-from selenium.webdriver import Firefox
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
@@ -21,7 +18,7 @@ def update_all_studios():
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
     )
-
+    start_time = time.time()
     driver = webdriver.Chrome(options=options)
     driver.get(url)
     time.sleep(4)
@@ -54,7 +51,6 @@ def update_all_studios():
 
         except:
             error_counter +=1
-            print(f'crushed on {counter} iteration on base page')
             continue
         time.sleep(2)
 
@@ -62,13 +58,11 @@ def update_all_studios():
             title = driver.find_element(By.CLASS_NAME,'title').text
         except:
             error_counter +=1
-            print(f'crushed on {counter} iteration on title')
             continue
         try: # ------- GET description
             description = driver.find_element(By.CLASS_NAME,'modal_more_text').text
         except:
             error_counter +=1
-            print(f'crushed on {counter} iteration on description')
             continue
         try: #--------------Get teacher / age / cost
             more_info = driver.find_elements(By.CLASS_NAME,'modal_more_info_text')
@@ -84,17 +78,14 @@ def update_all_studios():
                 age = driver.find_elements(By.CLASS_NAME,'modal_more_info_text')[-1].text
             except:
                 error_counter+=1
-                print('error with age')
                 continue
         except:
             error_counter +=1
-            print(f'crushed on {counter} iteration on getting teacher')
             continue
         try: #--------------Get QR_img
             qr_img = driver.find_element(By.CLASS_NAME,'about__slider').find_elements(By.TAG_NAME,'a')[0].get_attribute('href')
         except:
             error_counter += 1
-            print('crushed on qr_img')
         category = 'unknown'
 
         time.sleep(0.5)
@@ -104,8 +95,6 @@ def update_all_studios():
             data[title] = studio_info
         except:
             error_counter +=1
-            print(f'crushed on {counter} iteration on recording')
-
     categories = driver.find_element(By.CLASS_NAME,'tabs-wrapper').find_elements(By.CLASS_NAME,'tabs')[0].find_elements(By.TAG_NAME,'span')
 
 
@@ -116,7 +105,6 @@ def update_all_studios():
             try:
                 time.sleep(2)
                 category.click()
-                print(category.text)
                 items = driver.find_element(By.CLASS_NAME,'tab-item.done').find_element(By.CLASS_NAME,'flex').find_elements(By.CLASS_NAME,'services__item')
                 for i in items:
                     studios = i.find_elements(By.TAG_NAME,'div')[1].text
@@ -125,9 +113,13 @@ def update_all_studios():
                     else:
                         data[studios][-1] += category.text.lower()
             except:
-                print(f"Ошибка с добавлением категории {category.text}")
+                error_counter +=1
     except:
         pass
-    text = f'Было обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении'
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    text = f"Обновление завершено за {elapsed_time} секунд"
+    if error_counter > 0:
+        text += f'Было обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении'
     driver.close()
     return data, text

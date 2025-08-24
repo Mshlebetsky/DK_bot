@@ -62,7 +62,6 @@ async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession
                 name=name,
                 description=description,
                 img=img,
-                is_shown=True
             )
             session.add(new_news)
             added += 1

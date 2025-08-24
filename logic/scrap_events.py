@@ -19,7 +19,7 @@ def update_all_events():
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
     )
-
+    start_time = time.time()
     driver = webdriver.Chrome(options=options)
     driver.get(url)
     time.sleep(4)
@@ -27,7 +27,6 @@ def update_all_events():
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
     time.sleep(4)
 
-    start_time = time.time()
     data = {}
     error_counter = 0
     items = driver.find_element(By.CLASS_NAME, 'tabs-content').find_element(By.CLASS_NAME, 'flex').find_elements(

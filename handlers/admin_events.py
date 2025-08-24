@@ -12,7 +12,7 @@ from database import orm_query
 from database.models import Events
 from database.orm_query import (
     orm_add_event, orm_update_event, orm_delete_event,
-    orm_get_event, orm_get_events
+    orm_get_events
 )
 from logic.scrap_events import update_all_events
 

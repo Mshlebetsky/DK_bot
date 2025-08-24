@@ -201,9 +201,9 @@ async def orm_delete_news(session: AsyncSession, news_id: int):
 
 
 # --- Получить все новости ---
-async def orm_get_news(session: AsyncSession):
-    result = await session.execute(select(News).order_by(News.id.desc()))
-    return result.scalars().all()
+# async def orm_get_news(session: AsyncSession):
+#     result = await session.execute(select(News).order_by(News.id.desc()))
+#     return result.scalars().all()
 
 
 # --- Получить новость по имени ---

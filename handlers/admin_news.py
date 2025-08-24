@@ -5,10 +5,8 @@ from aiogram.fsm.state import StatesGroup, State
 import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 from database import orm_query
-from database.models import News
 from database.orm_query import (
     orm_add_news, orm_update_news, orm_delete_news,
     orm_get_news
@@ -134,123 +132,14 @@ async def delete_news_confirm(callback: CallbackQuery, session: AsyncSession):
 
 
 # --- Список новостей ---
-NEWS_PER_PAGE = 8
-
-def get_news_keyboard(news, page: int, total_pages: int):
-    keyboard = [
-        [InlineKeyboardButton(text=n.name[:30], callback_data=f"news_card:{n.id}:{page}")]
-        for n in news
-    ]
-    nav_buttons = []
-    if page > 1:
-        nav_buttons.append(InlineKeyboardButton(text="⏮ Назад", callback_data=f"news_page:{page-1}"))
-    if page < total_pages:
-        nav_buttons.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"news_page:{page+1}"))
-    if nav_buttons:
-        keyboard.append(nav_buttons)
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-async def list_news(message_or_callback, session: AsyncSession, page: int = 1):
-    offset = (page - 1) * NEWS_PER_PAGE
-    news = (
-        await session.execute(
-            select(News).offset(offset).limit(NEWS_PER_PAGE).order_by(News.id.desc())
-        )
-    ).scalars().all()
+#
+# # --- Хендлеры для списка ---
+# @admin_news_router.message(F.text.in_({"📋 Список новостей", "Список новостей"}))
+# async def news_list_command(message: types.Message, session: AsyncSession):
+#     await list_news(message, session, page=1)
 
-    total = (await session.execute(select(func.count(News.id)))).scalar_one()
-    total_pages = (total + NEWS_PER_PAGE - 1) // NEWS_PER_PAGE
-
-    if not news:
-        target = message_or_callback.message if isinstance(message_or_callback, types.CallbackQuery) else message_or_callback
-        await target.answer("Новости не найдены")
-        if isinstance(message_or_callback, types.CallbackQuery):
-            await message_or_callback.answer()
-        return
-
-    text = "<b>📋 Список новостей:</b>\n\n"
-    kb = get_news_keyboard(news, page, total_pages)
-
-    if isinstance(message_or_callback, types.CallbackQuery):
-        msg = message_or_callback.message
-        try:
-            await msg.edit_text(text, reply_markup=kb, parse_mode="HTML")
-        except Exception:
-            await msg.answer(text, reply_markup=kb)
-        await message_or_callback.answer()
-    else:
-        await message_or_callback.answer(text, reply_markup=kb)
-
-
-# --- Хендлеры для списка ---
-@admin_news_router.message(F.text.in_({"📋 Список новостей", "Список новостей"}))
-async def news_list_command(message: types.Message, session: AsyncSession):
-    await list_news(message, session, page=1)
-
-@admin_news_router.callback_query(F.data.in_({"list_news", "news_list"}))
-async def news_list_callback(callback: types.CallbackQuery, session: AsyncSession):
-    await list_news(callback, session, page=1)
-
-@admin_news_router.callback_query(F.data.startswith("news_page:"))
-async def news_page_handler(callback: CallbackQuery, session: AsyncSession):
-    page = int(callback.data.split(":")[1])
-    await list_news(callback, session, page)
-
-
-# карточка новости
-@admin_news_router.callback_query(F.data.startswith("news_card:"))
-async def news_card_handler(callback: CallbackQuery, session: AsyncSession):
-    _, news_id, page = callback.data.split(":")
-    news = await session.get(News, int(news_id))
-    if not news:
-        await callback.answer("Новость не найдена", show_alert=True)
-        return
-
-    desc = news.description or "Нет описания"
-    short_desc = (desc[:500] + "…") if len(desc) > 500 else desc
-    text = f"<b>{news.name}</b>\n\n{short_desc}"
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"news_page:{page}")],
-        [InlineKeyboardButton(text="ℹ️ Подробнее", callback_data=f"news_detail:{news.id}")]
-    ])
-
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-
-    if getattr(news, "img", None):
-        await callback.message.answer_photo(news.img, caption=text, reply_markup=kb)
-    else:
-        await callback.message.answer(text, reply_markup=kb)
-
-    await callback.answer()
-
-
-# полная карточка
-@admin_news_router.callback_query(F.data.startswith("news_detail:"))
-async def news_detail_handler(callback: CallbackQuery, session: AsyncSession):
-    news_id = int(callback.data.split(":")[1])
-    news = await session.get(News, news_id)
-    if not news:
-        await callback.answer("Новость не найдена", show_alert=True)
-        return
-
-    text = f"<b>{news.name}</b>\n\n{news.description}"
-
-    kb = [[InlineKeyboardButton(text="🔙 Назад к списку", callback_data="news_page:1")]]
-
-    if news.img:
-        try:
-            await callback.message.answer_photo(news.img, caption=text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
-        except Exception:
-            await callback.message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
-    else:
-        await callback.message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=kb))
-
-    await callback.answer()
 
 
 # --- Обновить все новости ---

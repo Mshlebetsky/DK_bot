@@ -9,6 +9,7 @@ from data.text import contact, menu, welcome
 
 from handlers.Studio_list import render_studio_list
 from handlers.Event_list import render_event_list
+from handlers.News_list import render_all_news, render_news_card
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -100,8 +101,8 @@ async def show_studios(message: types.Message, session: AsyncSession):
 
 
 @user_private_router.message(or_f(Command('news'),(F.text.lower()[1:] == "новости")))
-async def echo(message: types.Message):
-    pass
+async def echo(message: types.Message, session: AsyncSession):
+    await render_all_news(message,session)
 
 @user_private_router.message(or_f(Command('events'),(F.text == "📆Афиша мероприятий")))
 async def events_list_command(message: types.Message, session: AsyncSession):

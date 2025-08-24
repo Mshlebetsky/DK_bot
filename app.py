@@ -22,6 +22,9 @@ from handlers.admin_events import admin_events_router
 from handlers.admin_studios import admin_studios_router
 from handlers.Studio_list import studios_router
 from handlers.Event_list import event_router
+from handlers.News_list import news_router
+
+
 from logic.cmd_list import private
 
 
@@ -33,14 +36,14 @@ bot.my_admins_list = get_admins_ids()
 
 dp = Dispatcher()
 
+dp.include_router(news_router)
+
 dp.include_router(user_private_router)
 dp.include_router(user_router)
 dp.include_router(admin_router)
-# dp.include_router(user_events_router)
 dp.include_router(admin_events_router)
 dp.include_router(admin_news_router)
 dp.include_router(admin_studios_router)
-# dp.include_router(user_studios_router)
 dp.include_router(event_router)
 dp.include_router(studios_router)
 

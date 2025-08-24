@@ -9,8 +9,8 @@ def update_all_events():
     url = "https://xn----8sbknn9c9d.xn--p1ai/afisha/"
 
     options = Options()
-    #     options.add_argument("--headless=new")
-    #     options.add_argument("--no-sandbox")
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
@@ -31,10 +31,12 @@ def update_all_events():
     error_counter = 0
     items = driver.find_element(By.CLASS_NAME, 'tabs-content').find_element(By.CLASS_NAME, 'flex').find_elements(
         By.CLASS_NAME, 'b-event__slide-item')
+    driver.execute_script("arguments[0].scrollIntoView(true);", items[0])
+    time.sleep(2)
     for item in items:
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-
-        time.sleep(2)
+        driver.execute_script("arguments[0].scrollIntoView(true);", item)
+        time.sleep(1)
         try:
             item.find_elements(By.TAG_NAME, 'a')[0].click()
         except:
@@ -61,8 +63,9 @@ def update_all_events():
             mon, day, year = event_date.replace(',', '').split(' ')
             hour, minutes = event_time.split(':')
             date = datetime(int(year), int(month[mon.upper()]), int(day), int(hour), int(minutes))
-
+            date_str = f'{str(year)}-{str(month[mon.upper()])}-{str(day)} {str(hour)}:{str(minutes)}'
             information = [date, description, img, link]
+            information = [date_str, description, img, link]
             data[name] = information
 
         except:

@@ -8,7 +8,7 @@ def update_all_studios():
     url = "https://дк-яуза.рф/studii/"
 
     options = Options()
-    # options.add_argument("--headless=new")
+    options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
@@ -21,10 +21,10 @@ def update_all_studios():
     start_time = time.time()
     driver = webdriver.Chrome(options=options)
     driver.get(url)
-    time.sleep(4)
+    time.sleep(2)
 
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-    time.sleep(4)
+    time.sleep(2)
 
 
 
@@ -33,17 +33,17 @@ def update_all_studios():
     data = {}
     counter = 0
     error_counter = 0
-
+    driver.execute_script("arguments[0].scrollIntoView(true);", items[0])
+    time.sleep(3)
     for item in items:
         counter+=1
-
+        driver.execute_script("arguments[0].scrollIntoView(true);", item)
         body = driver.find_element(By.TAG_NAME,'body')
         body.send_keys(Keys.ESCAPE)
         time.sleep(1)
 
         try:  #----------GET img link / is_free and  clicking for details
             img = item.find_element(By.CLASS_NAME,'services__item-image').find_element(By.TAG_NAME,'img').get_attribute('src')
-
             is_free = item.find_elements(By.TAG_NAME,'div')[-1].text
             is_free = is_free.lower() == 'платно'
 
@@ -120,6 +120,6 @@ def update_all_studios():
     elapsed_time = end_time - start_time
     text = f"Обновление завершено за {elapsed_time} секунд"
     if error_counter > 0:
-        text += f'Было обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении'
+        text += f'\nБыло обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении'
     driver.close()
     return data, text

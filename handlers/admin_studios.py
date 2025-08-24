@@ -219,7 +219,7 @@ async def delete_studio_confirm(callback: CallbackQuery, session: AsyncSession):
 # --- Обновить все студии ---
 @admin_studios_router.callback_query(F.data == "update_all_studios")
 async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSession):
-    await callback.message.answer("🔄 Запускаю обновление студий, подождите...\nПримерное время обновления ~3 минуты")
+    await callback.message.answer("🔄 Запускаю обновление студий, пожалуйста подождите...\nПримерное время обновления ~3 минуты")
     try:
         data, log_text = await asyncio.to_thread(update_all_studios)
     except Exception as e:
@@ -306,7 +306,7 @@ def get_studio_detail_keyboard(studio: Studios, page: int):
     buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"studios_page:{page}")]]
     # if studio.link:
     link = 'https://дк-яуза.рф/studii/'
-    buttons.append([InlineKeyboardButton(text="🔗 Перейти", url=link)])
+    buttons.append([InlineKeyboardButton(text="🔗 Перейти на сайт", url=link)])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 

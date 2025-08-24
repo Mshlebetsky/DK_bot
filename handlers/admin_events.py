@@ -3,6 +3,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -12,7 +13,7 @@ from database import orm_query
 from database.models import Events
 from database.orm_query import (
     orm_add_event, orm_update_event, orm_delete_event,
-    orm_get_events
+    orm_get_events, orm_get_event_by_name
 )
 from logic.scrap_events import update_all_events
 
@@ -315,9 +316,10 @@ async def event_detail_handler(callback: CallbackQuery, session: AsyncSession):
 # --- Обновить все события ---
 @admin_events_router.callback_query(F.data == "update_all_events")
 async def update_all_events_handler(callback: CallbackQuery, session: AsyncSession):
-    await callback.message.answer("🔄 Обновляю события... Подождите ~1-2 минуты")
+    await callback.message.answer("🔄 Запускаю обновление афиши, пожалуйста подождите...\nПримерное время обновления ~2-3 минуты")
+
     try:
-        data, log_text = update_all_events()
+        data, log_text = await asyncio.to_thread(update_all_events)
     except Exception as e:
         await callback.message.answer(f"❌ Ошибка парсера: {e}")
         return

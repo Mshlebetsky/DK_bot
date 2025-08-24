@@ -14,7 +14,7 @@ class News(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(Text)
     description: Mapped[str] = mapped_column(Text)
-    img: Mapped[str] = mapped_column(Text)
+    img: Mapped[str] = mapped_column(Text, nullable=True, default=None)
     is_shown: Mapped[bool] = mapped_column(Boolean, default=True)
     announsed: Mapped[bool] = mapped_column(Boolean, default=False)
 

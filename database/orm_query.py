@@ -180,33 +180,33 @@ async def orm_delete_event(session: AsyncSession, event_id: int):
     await session.execute(delete(Events).where(Events.id == event_id))
     await session.commit()
 
+async def orm_get_event_by_name(session: AsyncSession, name: str):
+    result = await session.execute(select(Events).where(Events.name == name))
+    return result.scalars().first()
 
 # ---------------- NEWS -------------------
-async def orm_add_news(session: AsyncSession, data: dict):
-    news = News(**data)
-    session.add(news)
+async def orm_update_news(session: AsyncSession, news_id: int, values: dict):
+    await session.execute(
+        update(News)
+        .where(News.id == news_id)
+        .values(**values)
+    )
     await session.commit()
 
-async def orm_get_news(session: AsyncSession):
-    result = await session.execute(select(News))
-    return result.scalars().all()
 
-async def orm_get_news_item(session: AsyncSession, news_id: int):
-    return await session.get(News, news_id)
-
-async def orm_update_news(session: AsyncSession, news_id: int, data: dict):
-    await session.execute(update(News).where(News.id == news_id).values(**data))
-    await session.commit()
-
+# --- Удалить новость ---
 async def orm_delete_news(session: AsyncSession, news_id: int):
     await session.execute(delete(News).where(News.id == news_id))
     await session.commit()
 
 
-async def orm_get_event_by_name(session: AsyncSession, name: str):
-    res = await session.execute(select(Events).where(Events.name == name))
-    return res.scalar_one_or_none()
+# --- Получить все новости ---
+async def orm_get_news(session: AsyncSession):
+    result = await session.execute(select(News).order_by(News.id.desc()))
+    return result.scalars().all()
 
+
+# --- Получить новость по имени ---
 async def orm_get_news_by_name(session: AsyncSession, name: str):
-    res = await session.execute(select(News).where(News.name == name))
-    return res.scalar_one_or_none()
+    result = await session.execute(select(News).where(News.name == name))
+    return result.scalars().first()

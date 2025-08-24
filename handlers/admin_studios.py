@@ -215,91 +215,6 @@ async def delete_studio_confirm(callback: CallbackQuery, session: AsyncSession):
     await callback.message.answer("🗑 Студия удалена!", reply_markup=get_admin_studios_kb())
 
 
-# --- Список студий ---
-STUDIOS_PER_PAGE = 8
-
-
-def get_studios_keyboard(studios, page: int, total_pages: int):
-    keyboard = [
-        [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {(studio.name).capitalize()}",
-            callback_data=f"studio_detail:{studio.id}"
-        )]
-        for studio in studios
-    ]
-
-    nav_buttons = []
-    if page > 1:
-        nav_buttons.append(InlineKeyboardButton(text="⏮ Назад", callback_data=f"studios_page:{page-1}"))
-    if page < total_pages:
-        nav_buttons.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"studios_page:{page+1}"))
-    if nav_buttons:
-        keyboard.append(nav_buttons)
-
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-
-@admin_studios_router.callback_query(F.data == "list_studios")
-async def list_studios(message_or_callback, session, page: int = 1):
-    PAGE_SIZE = 8
-    offset = (page - 1) * PAGE_SIZE
-    studios = (await session.execute(select(Studios).offset(offset).limit(PAGE_SIZE))).scalars().all()
-    total = (await session.execute(select(func.count(Studios.id)))).scalar_one()
-    total_pages = (total + PAGE_SIZE - 1) // PAGE_SIZE
-
-    if not studios:
-        await message_or_callback.answer("Студии не найдены")
-        return
-
-    text = "Список студий:\n\n" + "\n".join([f"▫️ {studio.name.capitalize()}" for studio in studios])
-    keyboard = get_studios_keyboard(studios, page, total_pages)
-
-    if isinstance(message_or_callback, types.CallbackQuery):
-        try:
-            await message_or_callback.message.edit_text(text, reply_markup=keyboard, ParseMode='HTML')
-        except Exception:
-            await message_or_callback.message.answer(text, reply_markup=keyboard, ParseMode='HTML')
-    else:
-        await message_or_callback.answer(text, reply_markup=keyboard, ParseMode='HTML')
-
-
-@admin_studios_router.callback_query(F.data.startswith("studios_page:"))
-async def studios_page_handler(callback: CallbackQuery, session: AsyncSession):
-    page = int(callback.data.split(":")[1])
-    await list_studios(callback, session, page)
-
-
-@admin_studios_router.callback_query(F.data.startswith("studio_detail:"))
-async def studio_detail_handler(callback: types.CallbackQuery, session: AsyncSession):
-    studio_id = int(callback.data.split(":")[1])
-    studio = await orm_get_studio(session, studio_id)
-    if not studio:
-        await callback.answer("Студия не найдена", show_alert=True)
-        return
-
-    caption = f"{studio.name}"
-    description = (
-        f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
-        f"💰 Стоимость: {studio.cost} руб.\n"
-        f"🎂 Возраст: {studio.age}\n"
-        f"🏷 Категория: {studio.category}\n"
-        f"️⏱️ Обновлено {studio.updated} \n\n"
-        f"ℹ️ {studio.description}"
-
-
-    )
-
-    if studio.img:
-        try:
-            await callback.message.answer_photo(studio.img, caption=caption, ParseMode='HTML')
-        except Exception:
-            await callback.message.answer(caption, ParseMode='HTML')
-    else:
-        await callback.message.answer(caption, ParseMode='HTML')
-
-    await callback.message.answer(description)
-    await callback.answer()
-
 
 # --- Обновить все студии ---
 @admin_studios_router.callback_query(F.data == "update_all_studios")
@@ -349,3 +264,143 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
         f"➕ Добавлено: {added}",
         reply_markup=get_admin_studios_kb()
     )
+
+
+# --- Список студий ---
+
+STUDIOS_PER_PAGE = 8
+
+# ---------- Клавиатуры ----------
+def get_studios_keyboard(studios, page: int, total_pages: int):
+    keyboard = [
+        [InlineKeyboardButton(
+            text=f"{'🆓' if studio.cost == 0 else '💳'} {studio.name.capitalize()}",
+            callback_data=f"studio_card:{studio.id}:{page}"
+        )]
+        for studio in studios
+    ]
+
+    nav_buttons = []
+    if page > 1:
+        nav_buttons.append(
+            InlineKeyboardButton(text="⏮ Назад", callback_data=f"studios_page:{page-1}")
+        )
+    if page < total_pages:
+        nav_buttons.append(
+            InlineKeyboardButton(text="⏭ Далее", callback_data=f"studios_page:{page+1}")
+        )
+    if nav_buttons:
+        keyboard.append(nav_buttons)
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+
+def get_studio_card_keyboard(studio_id: int, page: int):
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"studios_page:{page}")],
+        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"studio_detail:{studio_id}")]
+    ])
+
+
+def get_studio_detail_keyboard(studio: Studios, page: int):
+    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"studios_page:{page}")]]
+    # if studio.link:
+    link = 'https://дк-яуза.рф/studii/'
+    buttons.append([InlineKeyboardButton(text="🔗 Перейти", url=link)])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+# ---------- Хендлеры ----------
+@admin_studios_router.callback_query(F.data == "list_studios")
+async def list_studios(callback: CallbackQuery, session: AsyncSession, page: int = 1):
+    offset = (page - 1) * STUDIOS_PER_PAGE
+    studios = (
+        await session.execute(
+            select(Studios).offset(offset).limit(STUDIOS_PER_PAGE)
+        )
+    ).scalars().all()
+
+    total = (await session.execute(select(func.count(Studios.id)))).scalar_one()
+    total_pages = (total + STUDIOS_PER_PAGE - 1) // STUDIOS_PER_PAGE
+
+    if not studios:
+        await callback.message.edit_text("Студии не найдены")
+        return
+
+    text = "📋 <b>Список студий:</b>\n\n"
+    keyboard = get_studios_keyboard(studios, page, total_pages)
+
+    try:
+        await callback.message.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+    except Exception:
+        await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+
+    await callback.answer()
+
+
+@admin_studios_router.callback_query(F.data.startswith("studios_page:"))
+async def studios_page_handler(callback: CallbackQuery, session: AsyncSession):
+    page = int(callback.data.split(":")[1])
+    await list_studios(callback, session, page)
+
+
+@admin_studios_router.callback_query(F.data.startswith("studio_card:"))
+async def studio_card_handler(callback: CallbackQuery, session: AsyncSession):
+    studio_id, page = map(int, callback.data.split(":")[1:])
+    studio = await orm_get_studio(session, studio_id)
+    if not studio:
+        await callback.answer("Студия не найдена", show_alert=True)
+        return
+
+    # Обрезаем описание
+    description = studio.description or "Нет описания"
+    short_desc = description[:500] + ("…" if len(description) > 500 else "")
+
+    text = f"<b>{studio.name}</b>\n\n{short_desc}"
+
+    kb = get_studio_card_keyboard(studio_id, page)
+
+    if studio.img:
+        try:
+            await callback.message.answer_photo(
+                studio.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML"
+            )
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+    else:
+        await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+
+    await callback.answer()
+
+
+@admin_studios_router.callback_query(F.data.startswith("studio_detail:"))
+async def studio_detail_handler(callback: CallbackQuery, session: AsyncSession):
+    studio_id = int(callback.data.split(":")[1])
+    studio = await orm_get_studio(session, studio_id)
+    if not studio:
+        await callback.answer("Студия не найдена", show_alert=True)
+        return
+
+    text = (
+        f"<b>{studio.name}</b>\n\n"
+        f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
+        f"💰 Стоимость: {studio.cost} руб.\n"
+        f"🎂 Возраст: {studio.age}\n"
+        f"🏷 Категория: {studio.category}\n"
+        f"⏱ Обновлено: {studio.updated}\n\n"
+        f"ℹ️ {studio.description or 'Нет описания'}"
+    )
+
+    kb = get_studio_detail_keyboard(studio, page=1)
+
+    if studio.img:
+        try:
+            await callback.message.answer_photo(
+                studio.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML"
+            )
+        except Exception:
+            await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+    else:
+        await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+
+    await callback.answer()

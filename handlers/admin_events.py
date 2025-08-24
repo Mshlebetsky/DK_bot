@@ -232,7 +232,7 @@ EVENTS_PER_PAGE = 8
 def get_events_keyboard(events, page: int, total_pages: int):
     """Клавиатура для списка событий"""
     keyboard = [
-        [InlineKeyboardButton(text=ev.name[:30], callback_data=f"event_card:{ev.id}:{page}")]
+        [InlineKeyboardButton( text=f"{ev.date:%d.%m} | {ev.name[:30].capitalize()}", callback_data=f"event_card:{ev.id}:{page}")]
         for ev in events
     ]
     nav_buttons = []
@@ -247,11 +247,17 @@ def get_events_keyboard(events, page: int, total_pages: int):
 
 async def list_events(message_or_callback, session: AsyncSession, page: int = 1):
     offset = (page - 1) * EVENTS_PER_PAGE
-    events = (await session.execute(
-        select(Events).order_by(Events.date.desc()).offset(offset).limit(EVENTS_PER_PAGE)
-    )).scalars().all()
+    events = (
+        await session.execute(
+            select(Events)
+            .offset(offset)
+            .limit(EVENTS_PER_PAGE)
+            .order_by(Events.date.asc())
+        )
+    ).scalars().all()
+
     total = (await session.execute(select(func.count(Events.id)))).scalar_one()
-    total_pages = max(1, (total + EVENTS_PER_PAGE - 1) // EVENTS_PER_PAGE)
+    total_pages = (total + EVENTS_PER_PAGE - 1) // EVENTS_PER_PAGE
 
     if not events:
         target = message_or_callback.message if isinstance(message_or_callback, types.CallbackQuery) else message_or_callback
@@ -260,7 +266,8 @@ async def list_events(message_or_callback, session: AsyncSession, page: int = 1)
             await message_or_callback.answer()
         return
 
-    text = "<b>Список событий:</b>\n\n" + "\n".join(f"▫️ {ev.name}" for ev in events)
+    # text = "<b>Список событий:</b>\n\n" + "\n".join(f"▫️ {ev.name}" for ev in events)
+    text = "<b>📋 Список ближайших событий:</b>\n\n"
     kb = get_events_keyboard(events, page, total_pages)
 
     if isinstance(message_or_callback, types.CallbackQuery):
@@ -288,7 +295,6 @@ async def list_events(message_or_callback, session: AsyncSession, page: int = 1)
 # --- Хендлеры ---
 
 # команда для списка
-# @admin_events_router.callback_query(F.data.startswith("events_list:"))
 
 @admin_events_router.message(F.text.in_({"📋 Список событий","Список событий", "Список мероприятий"}))
 async def events_list_command(message: types.Message, session: AsyncSession):
@@ -352,7 +358,9 @@ async def event_detail_handler(callback: CallbackQuery, session: AsyncSession):
         f"{event.description}\n"
     )
 
+    # kb = [[InlineKeyboardButton(text="🔙 Назад к списку", callback_data="events_page:1")]]
     kb = [[InlineKeyboardButton(text="🔙 Назад к списку", callback_data="events_page:1")]]
+
     if event.link:
         kb.append([InlineKeyboardButton(text="📝 Записаться", url=event.link)])
 

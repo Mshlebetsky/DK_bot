@@ -58,64 +58,58 @@ async def send_photo_with_text(
     )
 
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import types
 
-
-async def send_entity_card(callback, entity, back_cb: str, detail_cb: str):
+async def send_item_card(
+    callback: types.CallbackQuery,
+    item_id: int,
+    page: int,
+    title: str,
+    short_text: str,
+    img: str | None,
+    detail_callback: str,
+):
     """
-    Универсальный показ карточки сущности (студия, событие, новость).
-
-    :param callback: объект CallbackQuery
-    :param entity: объект SQLAlchemy (Studios, Events, News)
-    :param back_cb: callback_data для кнопки "Назад"
-    :param detail_cb: callback_data для кнопки "Подробнее"
+    Универсальная отправка карточки (с краткой инфой).
+    Добавляет кнопку назад (удалить карточку) и подробнее.
     """
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="🔙 Назад", callback_data=f"close_card:{callback.message.message_id}:{page}"),
+        InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"{detail_callback}:{item_id}:{page}")
+    ]])
 
-    # Название и обрезанный текст
-    text = f"<b>{entity.name}</b>\n\n"
-    description = (entity.description or "Нет описания")
-    short_desc = description[:500] + ("…" if len(description) > 500 else "")
-    text += short_desc
-
-    # Кнопки
-    buttons = [
-        [InlineKeyboardButton(text="🔙 Назад", callback_data=back_cb)],
-        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=detail_cb)]
-    ]
-    if getattr(entity, "link", None):  # если есть ссылка
-        if entity.link:
-            buttons.append([InlineKeyboardButton(text="🔗 Перейти", url=entity.link)])
-
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-
-    # Отправляем фото, если есть
-    if getattr(entity, "img", None) and entity.img:
+    if img:
         try:
             await callback.message.answer_photo(
-                photo=entity.img,
-                caption=text[:1024],  # Telegram ограничение
-                reply_markup=kb
+                img,
+                caption=f"<b>{title}</b>\n\n{short_text}",
+                reply_markup=kb,
+                parse_mode="HTML"
             )
-        except Exception as e:
-            print(f"⚠ Ошибка загрузки фото: {e}")
-            await callback.message.answer(text, reply_markup=kb)
+        except Exception:
+            await callback.message.answer(
+                f"<b>{title}</b>\n\n{short_text}",
+                reply_markup=kb,
+                parse_mode="HTML"
+            )
     else:
-        await callback.message.answer(text, reply_markup=kb)
+        await callback.message.answer(
+            f"<b>{title}</b>\n\n{short_text}",
+            reply_markup=kb,
+            parse_mode="HTML"
+        )
 
-    await callback.answer()
 
-
-async def send_entity_full(callback, entity, back_cb: str):
+async def close_item_card(callback: types.CallbackQuery):
     """
-    Показывает полное описание сущности
+    Универсальный обработчик кнопки "Назад" для удаления карточки
     """
-    text = f"<b>{entity.name}</b>\n\n{entity.description or 'Нет описания'}"
-
-    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=back_cb)]]
-    if getattr(entity, "link", None):
-        if entity.link:
-            buttons.append([InlineKeyboardButton(text="🔗 Перейти", url=entity.link)])
-
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-
-    await callback.message.answer(text, reply_markup=kb)
+    _, list_msg_id, page = callback.data.split(":")
+    try:
+        await callback.bot.delete_message(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id
+        )
+    except Exception:
+        pass
     await callback.answer()

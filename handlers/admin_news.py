@@ -1,19 +1,24 @@
+import asyncio
+
 from aiogram import Router, F, types
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-import asyncio
+from aiogram.filters import or_f,Command
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import orm_query
 from database.orm_query import (
     orm_add_news, orm_update_news, orm_delete_news,
-    orm_get_news
+    orm_get_all_news
 )
 from logic.scrap_news import update_all_news
+from filter.filter import IsAdmin, ChatTypeFilter
 
 admin_news_router = Router()
+admin_news_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
+
 
 # --- FSM ---
 class AddNewsFSM(StatesGroup):
@@ -40,7 +45,7 @@ def get_admin_news_kb():
 
 
 # --- Стартовое меню ---
-@admin_news_router.message(F.text == "Редактировать Новости")
+@admin_news_router.message(or_f((F.text == "Редактировать Новости"),Command('edit_news')))
 async def admin_news_menu(message: Message):
     await message.answer("Меню управления новостями:", reply_markup=get_admin_news_kb())
 
@@ -76,7 +81,7 @@ async def add_news_img(message: Message, state: FSMContext, session: AsyncSessio
 # --- Изменение новости ---
 @admin_news_router.callback_query(F.data == "edit_news")
 async def edit_news_start(callback: CallbackQuery, session: AsyncSession):
-    news = await orm_get_news(session)
+    news = await orm_get_all_news(session)
     if not news:
         await callback.message.answer("❌ Нет новостей для изменения.")
         return
@@ -115,7 +120,7 @@ async def edit_news_value(message: Message, state: FSMContext, session: AsyncSes
 # --- Удаление новости ---
 @admin_news_router.callback_query(F.data == "delete_news")
 async def delete_news_start(callback: CallbackQuery, session: AsyncSession):
-    news = await orm_get_news(session)
+    news = await orm_get_all_news(session)
     if not news:
         await callback.message.answer("❌ Нет новостей для удаления.")
         return

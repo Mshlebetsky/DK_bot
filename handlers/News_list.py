@@ -16,10 +16,10 @@ def get_news_card_keyboard(news_id: int):
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="⏮ Назад", callback_data=f"news_prev:{news_id}"),
+                InlineKeyboardButton(text="⏮ Назад", callback_data=f"news_next:{news_id}"),
                 InlineKeyboardButton(text="📋 Все новости", callback_data="list_all_news"),
                 InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"news_detail:{news_id}"),
-                InlineKeyboardButton(text="⏭ Далее", callback_data=f"news_next:{news_id}"),
+                InlineKeyboardButton(text="⏭ Далее", callback_data=f"news_prev:{news_id}"),
             ]
         ]
     )
@@ -47,7 +47,6 @@ def get_all_news_keyboard(news, page: int, total_pages: int):
 
 # ---------- Рендеры ----------
 async def render_news_card(message_or_callback, session: AsyncSession, news_id: int):
-    """Карточка новости"""
     news = await orm_get_news(session, news_id)
     if not news:
         if isinstance(message_or_callback, CallbackQuery):
@@ -56,11 +55,10 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
             await message_or_callback.answer("Новость не найдена")
         return
 
-    # короткое описание
     description = news.description or "Нет описания"
-    short_desc = description[:500] + ("…" if len(description) > 500 else "")
+    short_desc = description[:350] + ("… \nнажмите на \"подробднее\", чтобы прочитать полностью" if len(description) > 350 else "")
 
-    # соседние новости для вывода названий
+    # соседи для списка
     neighbors = (
         await session.execute(
             select(News)
@@ -69,16 +67,24 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
         )
     ).scalars().all()
 
-    # найдем индекс текущей
     idx = next((i for i, n in enumerate(neighbors) if n.id == news.id), None)
     neighbor_titles = []
     if idx is not None:
-        # выводим до 4 новостей рядом (2 назад, 2 вперед)
-        slice_start = max(0, idx - 2)
-        slice_end = min(len(neighbors), idx + 3)
-        neighbor_titles = [
-            f"▫ {n.name}" for n in neighbors[slice_start:slice_end] if n.id != news.id
-        ]
+        # предыдущая новость
+        if idx > 0:
+            prev_news = neighbors[idx - 1]
+            short_name = prev_news.name[:100] + ("…" if len(prev_news.name) > 100 else "")
+            neighbor_titles.append(
+                f"⬅ <i>Предыдущая:</i> \n🗞 {short_name}"
+            )
+
+        # следующие новости
+        next_two = neighbors[idx + 1: idx + 3]
+        if next_two:
+            titles = "\n".join(
+                [f"🗞 {n.name[:100] + ("…" if len(n.name) > 100 else "")}" for n in next_two]
+            )
+            neighbor_titles.append(f"➡ <i>Следующие:</i>\n{titles}")
 
     text = f"<b>{news.name}</b>\n\n{short_desc}\n\n" + "\n".join(neighbor_titles)
     kb = get_news_card_keyboard(news.id)
@@ -87,12 +93,11 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
 
     try:
         if news.img:
-            if target.photo:
-                await target.edit_caption(caption=text[:1024], reply_markup=kb, parse_mode="HTML")
-            else:
-                await target.delete()
-                await target.answer_photo(news.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
+            # если есть картинка — всегда удаляем предыдущее сообщение
+            await target.delete()
+            await target.answer_photo(news.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
         else:
+            # если только текст
             if target.text:
                 await target.edit_text(text[:4095], reply_markup=kb, parse_mode="HTML")
             else:
@@ -105,23 +110,24 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
         await message_or_callback.answer()
 
 
-async def render_news_detail(message_or_callback, news: News):
+
+async def render_news_detail(message_or_callback, session: AsyncSession, news: News):
     """Полная карточка новости"""
     text = f"<b>{news.name}</b>\n\n{news.description or 'Нет описания'}"
 
     kb = InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/news/")]]
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"news_card:{news.id}")],
+            [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/news/")]
+        ]
     )
 
     target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback
 
     try:
         if news.img:
-            if target.photo:
-                await target.edit_caption(caption=text[:1024], reply_markup=kb, parse_mode="HTML")
-            else:
-                await target.delete()
-                await target.answer_photo(news.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
+            await target.delete()
+            await target.answer_photo(news.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
         else:
             if target.text:
                 await target.edit_text(text[:4095], reply_markup=kb, parse_mode="HTML")
@@ -133,6 +139,7 @@ async def render_news_detail(message_or_callback, news: News):
 
     if isinstance(message_or_callback, CallbackQuery):
         await message_or_callback.answer()
+
 
 
 async def render_all_news(message_or_callback, session: AsyncSession, page: int = 1):
@@ -191,7 +198,8 @@ async def news_detail_handler(callback: CallbackQuery, session: AsyncSession):
     news_id = int(callback.data.split(":")[1])
     news = await orm_get_news(session, news_id)
     if news:
-        await render_news_detail(callback, news)
+        await render_news_detail(callback, session, news)
+
 
 
 @news_router.callback_query(F.data == "list_all_news")

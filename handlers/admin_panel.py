@@ -1,9 +1,10 @@
 from replyes.kbrds import get_keyboard
-from aiogram.filters import CommandStart, Command, or_f
+from aiogram.filters import  Command, or_f
 from aiogram import Router, types
 
 from filter.filter import ChatTypeFilter, IsAdmin, check_message, get_admins_ids
 
+from data.text import admin_welcome
 
 user_router = Router()
 @user_router.message(or_f(Command('check_admin'), lambda msg: msg.text == "Проверить админа"))
@@ -27,6 +28,8 @@ ADMIN_KB = get_keyboard(
 
 admin_router = Router()
 admin_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
+
+
 @admin_router.message(or_f(Command('admin_panel'), (lambda msg: msg.text == "🛠Панель администратора")))
 async def admin_panel(message: types.Message):
-    await message.answer('Добро пожаловать в панель администратора', reply_markup=ADMIN_KB)
+    await message.answer(f'{admin_welcome}', reply_markup=ADMIN_KB)

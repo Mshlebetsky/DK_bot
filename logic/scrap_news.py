@@ -39,7 +39,8 @@ def update_all_news():
     except:
         text = 'Ошибка с нахождением блоков новостей'
         return data, text
-    for item in news_list:
+    for item in news_list[-1::-1]:
+        driver.execute_script("arguments[0].scrollIntoView(true);", item)
         counter += 1
         body.send_keys(Keys.ESCAPE)
         time.sleep(0.5)
@@ -71,7 +72,7 @@ def update_all_news():
             # text += f'Ошибка с поиском описания {counter} новости'
             error_counter += 1
             continue
-        data[title] = [img, description]
+        data[title] = [description, img]
     end_time = time.time()
     elapsed_time = end_time - start_time
     text = f"Обновление завершено за {elapsed_time} секунд"

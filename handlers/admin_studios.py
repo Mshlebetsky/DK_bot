@@ -1,20 +1,27 @@
+import asyncio
+
 from aiogram import Router, F, types
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from aiogram.filters import or_f,Command
+
 from sqlalchemy.ext.asyncio import AsyncSession
-import asyncio
-from logic.scrap_studios import update_all_studios
 from database.orm_query import (
     orm_add_studio,
     orm_update_studio,
     orm_delete_studio,
     orm_get_studios,
-    orm_get_studio,
     orm_get_studio_by_name,
 )
 
+from logic.scrap_studios import update_all_studios
+from filter.filter import IsAdmin, ChatTypeFilter
+
+
 admin_studios_router = Router()
+admin_studios_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
+
 
 # --- FSM ---
 class AddStudioFSM(StatesGroup):
@@ -51,7 +58,7 @@ def get_admin_studios_kb():
 
 
 # --- Стартовое меню ---
-@admin_studios_router.message(F.text == "Редактировать Студии")
+@admin_studios_router.message(or_f((F.text == "Редактировать Студии"),Command('edit_studios')))
 async def admin_studios_menu(message: Message):
     await message.answer("Меню управления студиями:", reply_markup=get_admin_studios_kb())
 

@@ -1,24 +1,25 @@
+import asyncio
+
 from aiogram import Router, F, types
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.filters import or_f,Command
 
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-import asyncio
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
 
 from database import orm_query
-from database.models import Events
 from database.orm_query import (
     orm_add_event, orm_update_event, orm_delete_event,
     orm_get_events, orm_get_event_by_name
 )
 from logic.scrap_events import update_all_events
+from filter.filter import check_message, IsAdmin, ChatTypeFilter
 
 admin_events_router = Router()
-
+admin_events_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
 # --- FSM ---
 class AddEventFSM(StatesGroup):
     name = State()
@@ -45,7 +46,7 @@ def get_admin_events_kb():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 # --- Стартовое меню ---
-@admin_events_router.message(F.text == "Редактировать Афишу")
+@admin_events_router.message(or_f((F.text == "Редактировать Афишу"),Command('edit_events')))
 async def admin_events_menu(message: Message):
     await message.answer("Меню управления событиями:", reply_markup=get_admin_events_kb())
 

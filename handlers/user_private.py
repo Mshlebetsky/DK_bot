@@ -77,12 +77,21 @@ start_menu = InlineKeyboardMarkup(
     ]
 )
 @user_private_router.callback_query(F.data == "agree_policy")
+@user_private_router.callback_query(F.data == "agree_policy")
 async def process_agree(callback: CallbackQuery):
+    # Удаляем сообщение с кнопкой "Согласен"
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+
     await callback.answer("Спасибо, вы согласились ✅", show_alert=False)
 
-
-    # await callback.message.answer("Главное меню:", reply_markup= get_keyboard("📝Меню",placeholder='...',sizes=(1)))
-    await callback.message.answer("Теперь можно начать работу:",reply_markup=User_Default_KBRD)
+    # Показываем следующее меню
+    await callback.message.answer(
+        f"Теперь можно начать работу:\n{menu}",
+        reply_markup=User_Default_KBRD
+    )
 @user_private_router.message(or_f(Command('menu'),(F.data == "start_work"),(F.text.lower()[1:] == "меню"),(F.text.lower() == "вернуться")))
 async def show_menu(message: types.Message):
     await message.answer(f'{menu}',reply_markup= await Default_Keyboard(message))

@@ -16,6 +16,7 @@ from database.orm_query import (
     orm_get_events, orm_get_event_by_name
 )
 from logic.scrap_events import update_all_events
+from handlers.notification import notify_subscribers
 from filter.filter import check_message, IsAdmin, ChatTypeFilter
 
 admin_events_router = Router()
@@ -98,6 +99,7 @@ async def add_event_img(message: Message, state: FSMContext, session: AsyncSessi
     await orm_add_event(session, data)
     await state.clear()
     await message.answer("✅ Событие добавлено!", reply_markup=get_admin_events_kb())
+
 
 # --- Изменение события ---
 @admin_events_router.callback_query(F.data == "edit_event")

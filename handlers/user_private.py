@@ -3,6 +3,8 @@ from aiogram.filters import CommandStart, Command, or_f
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 from filter.filter import ChatTypeFilter, check_message
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.orm_query import orm_get_user, orm_add_user
 
 from replyes.kbrds import get_keyboard
 from data.text import contact, menu, welcome
@@ -10,7 +12,7 @@ from data.text import contact, menu, welcome
 from handlers.Studio_list import render_studio_list
 from handlers.Event_list import render_event_list
 from handlers.News_list import render_all_news, render_news_card
-from sqlalchemy.ext.asyncio import AsyncSession
+from handlers.notification import get_subscriptions_kb
 
 
 user_private_router = Router()
@@ -20,23 +22,27 @@ keyboard_params =["📆Афиша мероприятий",
             "💃Студии",
             "🗞Новости",
             "📝Меню",
+            "💼Услуги",
+            "🖍Подписки",
             "📍Контакты",
             "🖍Уведомления",
             "Проверить админа"]
 
 User_Default_KBRD = get_keyboard(
-           *keyboard_params,placeholder="Что вас интересует?",sizes=(3, 3, 1)
+           *keyboard_params,placeholder="Что вас интересует?",sizes=(3, 3, 3)
         )
 admin_Keyboard_params = ["📆Афиша мероприятий",
             "💃Студии",
             "🗞Новости",
             "📝Меню",
+            "💼Услуги",
+            "🖍Подписки",
             "📍Контакты",
             "🖍Уведомления",
             "Проверить админа",
             "🛠Панель администратора"]
 Admin_Default_KBRD = get_keyboard(
-           *admin_Keyboard_params,placeholder="Что вас интересует?",sizes=(3, 3, 2)
+           *admin_Keyboard_params,placeholder="Что вас интересует?",sizes=(3, 3, 4)
         )
 
 
@@ -47,15 +53,18 @@ async def Default_Keyboard(message):
         return User_Default_KBRD
 
 @user_private_router.message(CommandStart())
-async def start_cmd(message: types.Message):
+async def start_cmd(message: types.Message, session: AsyncSession):
+    # добавляем юзера в базу
+    await orm_add_user(
+        session,
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=message.from_user.first_name,
+        last_name=message.from_user.last_name
+    )
+
     policy_keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            # [
-            #     InlineKeyboardButton(
-            #         text="📖 Ознакомиться с политикой",
-            #         url="https://example.com/privacy-policy"  # <-- ссылка на документ
-            #     )
-            # ],
             [
                 InlineKeyboardButton(
                     text="✅ Согласен",
@@ -64,19 +73,7 @@ async def start_cmd(message: types.Message):
             ]
         ]
     )
-    await message.answer(f"{welcome}",reply_markup= policy_keyboard, parse_mode="HTML")
-
-start_menu = InlineKeyboardMarkup(
-    inline_keyboard=[
-        [
-            InlineKeyboardButton(
-                text="Начать работу",
-                callback_data="start_work"
-            )
-        ]
-    ]
-)
-@user_private_router.callback_query(F.data == "agree_policy")
+    await message.answer(f"{welcome}", reply_markup=policy_keyboard, parse_mode="HTML")
 @user_private_router.callback_query(F.data == "agree_policy")
 async def process_agree(callback: CallbackQuery):
     # Удаляем сообщение с кнопкой "Согласен"
@@ -116,3 +113,24 @@ async def echo(message: types.Message, session: AsyncSession):
 @user_private_router.message(or_f(Command('events'),(F.text == "📆Афиша мероприятий")))
 async def events_list_command(message: types.Message, session: AsyncSession):
     await render_event_list(message, session, page=1)
+
+# @user_private_router.message(or_f(Command('servises'),(F.text == "💼Услуги")))
+# async def notification(message: types.Message, session: AsyncSession):
+#     pass
+
+
+@user_private_router.message(or_f(Command('notification'),(F.text == "🖍Подписки")))
+async def notification(message: types.Message, session: AsyncSession):
+    await orm_add_user(
+        session,
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=message.from_user.first_name,
+        last_name=message.from_user.last_name
+
+    )
+    user = await orm_get_user(session, message.from_user.id)
+    await message.answer(
+        "Выберите подписки:",
+        reply_markup=get_subscriptions_kb(user)
+    )

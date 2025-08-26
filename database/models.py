@@ -53,15 +53,10 @@ class Users(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(Text)
-    agreement: Mapped[bool] = mapped_column(Boolean)
-    subscribed: Mapped[bool] = mapped_column(Boolean)
-
-class Product(Base):
-    __tablename__ = 'product'
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(150), nullable=False)
-    description: Mapped[str] = mapped_column(Text)
-    price: Mapped[float] = mapped_column(Float(asdecimal=True), nullable=False)
-    image: Mapped[str] = mapped_column(String(150))
+    username: Mapped[str] = mapped_column(String, nullable=True)
+    first_name: Mapped[str] = mapped_column(String, nullable=True)
+    last_name: Mapped[str] = mapped_column(String, nullable=True)
+    subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
+    news_subscribed: Mapped[bool] = mapped_column(Boolean ,default=False)
+    events_subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
+    admin : Mapped[bool] = mapped_column(Boolean, default=False)

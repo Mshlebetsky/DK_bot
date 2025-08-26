@@ -46,7 +46,10 @@ def get_studio_card_keyboard(studio_id: int, page: int):
 def get_studio_detail_keyboard(studio: Studios, page: int):
     buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"studio_card:{studio.id}:{page}")]]
     link = 'https://дк-яуза.рф/studii/'
+    link2 = 'https://dk.mosreg.ru/'
     buttons.append([InlineKeyboardButton(text="🔗 Перейти на сайт", url=link)])
+    buttons.append([InlineKeyboardButton(text="🖍 Записаться в кружок", url=link2)]
+                   )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -69,7 +72,11 @@ async def render_studio_list(message_or_callback, session: AsyncSession, page: i
     target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback
 
     if not studios:
-        await target.edit_text("Студии не найдены") if target.text else await target.answer("Студии не найдены")
+        if isinstance(message_or_callback, CallbackQuery):
+            await message_or_callback.message.delete()  # удаляем старое сообщение, если оно есть
+            await message_or_callback.message.answer("❌Студии не найдены")
+        else:
+            await message_or_callback.answer("❌Студии не найдены")
         return
 
     try:

@@ -1,6 +1,6 @@
 import asyncio
 
-from aiogram import Router, F, types
+from aiogram import Router, F, types, Bot
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -13,6 +13,7 @@ from database.orm_query import (
     orm_add_news, orm_update_news, orm_delete_news,
     orm_get_all_news
 )
+from handlers.notification import notify_subscribers
 from logic.scrap_news import update_all_news
 from filter.filter import IsAdmin, ChatTypeFilter
 
@@ -69,7 +70,7 @@ async def add_news_description(message: Message, state: FSMContext):
     await message.answer("Отправьте ссылку на изображение (или '-' если нет):")
 
 @admin_news_router.message(AddNewsFSM.img)
-async def add_news_img(message: Message, state: FSMContext, session: AsyncSession):
+async def add_news_img(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
     img = None if message.text == "-" else message.text
     await state.update_data(img=img)
     data = await state.get_data()
@@ -77,6 +78,8 @@ async def add_news_img(message: Message, state: FSMContext, session: AsyncSessio
     await state.clear()
     await message.answer("✅ Новость добавлена!", reply_markup=get_admin_news_kb())
 
+    notify_text = f"📰 Новая новость!\n\n<b>{data['name']}</b>\n\n{data['description'][:300]}..."
+    await notify_subscribers(bot, session, notify_text, img)
 
 # --- Изменение новости ---
 @admin_news_router.callback_query(F.data == "edit_news")
@@ -134,16 +137,6 @@ async def delete_news_confirm(callback: CallbackQuery, session: AsyncSession):
     news_id = int(callback.data.split("_")[2])
     await orm_delete_news(session, news_id)
     await callback.message.answer("🗑 Новость удалена!", reply_markup=get_admin_news_kb())
-
-
-# --- Список новостей ---
-
-
-#
-# # --- Хендлеры для списка ---
-# @admin_news_router.message(F.text.in_({"📋 Список новостей", "Список новостей"}))
-# async def news_list_command(message: types.Message, session: AsyncSession):
-#     await list_news(message, session, page=1)
 
 
 

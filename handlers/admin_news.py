@@ -78,8 +78,8 @@ async def add_news_img(message: Message, state: FSMContext, session: AsyncSessio
     await state.clear()
     await message.answer("✅ Новость добавлена!", reply_markup=get_admin_news_kb())
 
-    notify_text = f"📰 Новая новость!\n\n<b>{data['name']}</b>\n\n{data['description'][:300]}..."
-    await notify_subscribers(bot, session, notify_text, img)
+    notify_text = f"📰 Новая новость!\n(Потом согласовать/поменять текст)\n\n<b>{data['name']}</b>\n\n{data['description'][:300]}..."
+    await notify_subscribers(bot, session, notify_text, img, notify_type="news")
 
 # --- Изменение новости ---
 @admin_news_router.callback_query(F.data == "edit_news")
@@ -142,7 +142,7 @@ async def delete_news_confirm(callback: CallbackQuery, session: AsyncSession):
 
 # --- Обновить все новости ---
 @admin_news_router.callback_query(F.data == "update_all_news")
-async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession):
+async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     await callback.message.answer("🔄 Запускаю обновление новостей, пожалуйста подождите...\nПримерное время обновления ~1 минута")
     try:
         data, log_text = await asyncio.to_thread(update_all_news)
@@ -179,3 +179,6 @@ async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession
         f"➕ Добавлено: {added}",
         reply_markup=get_admin_news_kb()
     )
+    if added > 0:
+        notify_text = f"📰 Новое обновление новостей!\n\n...Скорее переходите во вкладку \"Новости\" чтобы ознакомиться!!!\n\n(Потом согласовать/поменять)"
+        await notify_subscribers(bot, session, notify_text, '', notify_type="news")

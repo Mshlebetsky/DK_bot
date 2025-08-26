@@ -1,3 +1,5 @@
+import asyncio, re
+
 from aiogram import Router, types, F
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -57,22 +59,50 @@ async def toggle_subscription(callback: CallbackQuery, session: AsyncSession):
     await callback.message.edit_reply_markup(reply_markup=get_subscriptions_kb(user))
     await callback.answer(text)
 
-async def notify_subscribers(bot: Bot, session: AsyncSession, text: str, img: str = None):
-    # достаём всех подписанных пользователей
-    result = await session.execute(
-        select(Users.id).where(Users.news_subscribed == True)
-    )
-    subscribers = [row[0] for row in result.fetchall()]
+IMG_URL_PATTERN = re.compile(r"^https?://.*\.(jpg|jpeg|png|gif|webp)$", re.IGNORECASE)
 
-    if not subscribers:
-        return  # никто не подписан — выходим
 
+async def _send_notifications(bot: Bot, subscribers: list[int], text: str, img: str | None = None):
+    """Фоновая задача рассылки"""
     for user_id in subscribers:
         try:
-            if img:
+            if img and IMG_URL_PATTERN.match(img):  # если это валидная ссылка на картинку
                 await bot.send_photo(user_id, img, caption=text, parse_mode="HTML")
             else:
                 await bot.send_message(user_id, text, parse_mode="HTML")
         except Exception as e:
-            # например, пользователь заблокировал бота
             print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
+        await asyncio.sleep(0.05)  # маленькая пауза, чтобы не упереться в лимиты Telegram
+
+
+async def notify_subscribers(
+    bot: Bot,
+    session: AsyncSession,
+    text: str,
+    img: str | None = None,
+    notify_type: str = "news"  # "news" или "events"
+):
+    """
+    Универсальная функция уведомлений.
+    notify_type:
+        - "news" → только те, кто подписан на новости
+        - "events" → только те, кто подписан на мероприятия
+    """
+    query = select(Users.id)
+
+    if notify_type == "news":
+        query = query.where(Users.news_subscribed == True)
+    elif notify_type == "events":
+        query = query.where(Users.events_subscribed == True)
+    else:
+        raise ValueError("notify_type должен быть 'news' или 'events'")
+
+    result = await session.execute(query)
+    subscribers = [row[0] for row in result.fetchall()]
+
+    if not subscribers:
+        print("Подписчиков нет.")
+        return
+
+    # запускаем рассылку фоном
+    asyncio.create_task(_send_notifications(bot, subscribers, text, img))

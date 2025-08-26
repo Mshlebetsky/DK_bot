@@ -25,6 +25,7 @@ class Events(Base):
     name: Mapped[str] = mapped_column(Text)
     date: Mapped[datetime] = mapped_column(DateTime)
     description: Mapped[str] = mapped_column(Text)
+    # age_limits = Mapped[str] = mapped_column(String, default='', nullable=True)
     link: Mapped[str] = mapped_column(Text, nullable=True, default=None)
     is_free: Mapped[bool] = mapped_column(Boolean, default=False)
     img: Mapped[str] = mapped_column(Text, nullable=True, default=None)
@@ -46,7 +47,6 @@ class Studios(Base):
     qr_img: Mapped[str] = mapped_column(Text, nullable=True)
     img: Mapped[str] = mapped_column(Text, nullable=True)
     is_shown: Mapped[bool] = mapped_column(Boolean, default=True)
-    announsed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Users(Base):

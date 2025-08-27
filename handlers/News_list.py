@@ -90,7 +90,7 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
     kb = get_news_card_keyboard(news.id)
 
     target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback
-#
+#popopo
     try:
         if news.img:
             # если есть картинка — всегда удаляем предыдущее сообщение

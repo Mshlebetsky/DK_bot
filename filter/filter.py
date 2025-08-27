@@ -25,8 +25,9 @@ class IsAdmin(Filter):
 
 
 admins_list = os.getenv("ADMINS_LIST").replace(' ','').split(',')
-async def check_message(message: types.Message) -> bool:
+def check_message(message: types.Message) -> bool:
+    admins_list = os.getenv("ADMINS_LIST").replace(' ', '').split(',')
     return str(message.from_user.id) in admins_list
 def get_admins_ids() -> list[str]:
-    return admins_list
+    return os.getenv("ADMINS_LIST").replace(' ', '').split(',')
 # print(admins_list)

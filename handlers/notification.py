@@ -17,15 +17,15 @@ def get_subscriptions_kb(user):
 
     # Новости
     if user.news_subscribed:
-        buttons.append([InlineKeyboardButton(text="❌ Отписаться от новостей", callback_data="unsub_news")])
+        buttons.append([InlineKeyboardButton(text="✅ Вы подписаны на новости", callback_data="unsub_news")])
     else:
-        buttons.append([InlineKeyboardButton(text="✅ Подписаться на новости", callback_data="sub_news")])
+        buttons.append([InlineKeyboardButton(text="❌ Вы не подписаны на новости", callback_data="sub_news")])
 
     # Мероприятия
     if user.events_subscribed:
-        buttons.append([InlineKeyboardButton(text="❌ Отписаться от мероприятий", callback_data="unsub_events")])
+        buttons.append([InlineKeyboardButton(text="✅ Вы подписаны на афишу", callback_data="unsub_events")])
     else:
-        buttons.append([InlineKeyboardButton(text="✅ Подписаться на мероприятия", callback_data="sub_events")])
+        buttons.append([InlineKeyboardButton(text="❌ Вы не подписаны на афишу", callback_data="sub_events")])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -33,6 +33,7 @@ def get_subscriptions_kb(user):
 @notificate_router.message(F.text == "🔔 Подписки")
 async def show_subscriptions(message: types.Message, session: AsyncSession):
     user = await orm_get_user(session, message.from_user.id)
+    text = f"Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
     await message.answer("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
 
 

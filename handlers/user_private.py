@@ -16,7 +16,7 @@ from handlers.notification import get_subscriptions_kb
 
 
 user_private_router = Router()
-user_private_router.message.filter(ChatTypeFilter(["private"]))#
+user_private_router.message.filter(ChatTypeFilter(["private"]))##
 
 keyboard_params =["📆Афиша мероприятий",
             "💃Студии",

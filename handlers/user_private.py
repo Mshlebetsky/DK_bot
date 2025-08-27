@@ -40,7 +40,7 @@ admin_Keyboard_params = ["📆Афиша мероприятий",
             "Проверить админа",
             "🛠Панель администратора"]
 Admin_Default_KBRD = get_keyboard(
-           *admin_Keyboard_params,placeholder="Что вас интересует?",sizes=(3, 3, 3)
+           *admin_Keyboard_params,placeholder="Что вас интересует?",sizes=(3, 3, 3)#
         )
 
 

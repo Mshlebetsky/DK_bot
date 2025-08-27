@@ -158,7 +158,7 @@ async def update_all_news_handler_(callback: CallbackQuery, session: AsyncSessio
         [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_news_False")]
     ])
     await callback.message.answer("Оповестить пользователей?", reply_markup=question_kb)
-@admin_news_router.callback_query(F.data == "update_all_news_")
+@admin_news_router.callback_query(F.data.startswith("update_all_news_"))
 async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     try:
         update = (callback.data.split('_')[3] == str(True))

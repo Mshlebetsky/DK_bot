@@ -112,9 +112,9 @@ async def echo(message: types.Message, session: AsyncSession):
 async def events_list_command(message: types.Message, session: AsyncSession):
     await render_event_list(message, session, page=1)
 
-# @user_private_router.message(or_f(Command('servises'),(F.text == "💼Услуги")))
-# async def notification(message: types.Message, session: AsyncSession):
-#     pass
+@user_private_router.message(or_f(Command('servises'),(F.text == "💼Услуги")))
+async def notification(message: types.Message, session: AsyncSession):
+    pass
 
 
 @user_private_router.message(or_f(Command('notification'),(F.text == "🖍Подписки")))

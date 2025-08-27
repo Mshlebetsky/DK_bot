@@ -1,3 +1,5 @@
+from datetime import date
+
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -60,11 +62,20 @@ async def render_event_list(target: Message | CallbackQuery, session: AsyncSessi
     offset = (page - 1) * EVENTS_PER_PAGE
     events = (
         await session.execute(
-            select(Events).offset(offset).limit(EVENTS_PER_PAGE).order_by(Events.date.asc())
+            select(Events)
+            .where(Events.date >= date.today())  # 👈 только будущие события
+            .order_by(Events.date.asc())
+            .offset(offset)
+            .limit(EVENTS_PER_PAGE)
         )
     ).scalars().all()
 
-    total = (await session.execute(select(func.count(Events.id)))).scalar_one()
+    total = (
+        await session.execute(
+            select(func.count(Events.id)).where(Events.date >= date.today())
+        )
+    ).scalar_one()
+
     total_pages = (total + EVENTS_PER_PAGE - 1) // EVENTS_PER_PAGE
 
     if not events:

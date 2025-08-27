@@ -15,13 +15,13 @@ NEWS_PER_PAGE = 8
 def get_news_card_keyboard(news_id: int):
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(text="⏮ Назад", callback_data=f"news_next:{news_id}"),
-                InlineKeyboardButton(text="📋 Все новости", callback_data="list_all_news"),
-                InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"news_detail:{news_id}"),
-                InlineKeyboardButton(text="⏭ Далее", callback_data=f"news_prev:{news_id}"),
+
+                [InlineKeyboardButton(text="📋 Все новости", callback_data="list_all_news"),
+                InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"news_detail:{news_id}")],
+                [InlineKeyboardButton(text="⏮ Назад", callback_data=f"news_next:{news_id}"),
+                InlineKeyboardButton(text="⏭ Далее", callback_data=f"news_prev:{news_id}")],
             ]
-        ]
+
     )
 
 

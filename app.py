@@ -22,6 +22,7 @@ from handlers.Studio_list import studios_router
 from handlers.Event_list import event_router
 from handlers.News_list import news_router
 from handlers.notification import notificate_router
+from handlers.Serviсes import servises_router
 
 from logic.cmd_list import private
 
@@ -44,6 +45,7 @@ dp.include_router(admin_news_router)
 dp.include_router(admin_studios_router)
 dp.include_router(event_router)
 dp.include_router(studios_router)
+dp.include_router(servises_router)
 
 async def on_startup(bot):
     run_param = False

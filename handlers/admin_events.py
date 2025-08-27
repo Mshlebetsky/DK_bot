@@ -1,6 +1,6 @@
 import asyncio
 
-from aiogram import Router, F, types, Bot
+from aiogram import Router, F, types
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import or_f,Command
 
@@ -15,7 +15,6 @@ from database.orm_query import (
     orm_add_event, orm_update_event, orm_delete_event,
     orm_get_events, orm_get_event_by_name
 )
-from handlers.notification import notify_subscribers
 from logic.scrap_events import update_all_events
 from handlers.notification import notify_subscribers
 from filter.filter import check_message, IsAdmin, ChatTypeFilter
@@ -93,16 +92,13 @@ async def add_event_link(message: Message, state: FSMContext):
     await message.answer("Отправьте ссылку на изображение (или '-' если нет):")
 
 @admin_events_router.message(AddEventFSM.img)
-async def add_event_img(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
+async def add_event_img(message: Message, state: FSMContext, session: AsyncSession):
     img = None if message.text == "-" else message.text
     await state.update_data(img=img)
     data = await state.get_data()
     await orm_add_event(session, data)
     await state.clear()
     await message.answer("✅ Событие добавлено!", reply_markup=get_admin_events_kb())
-
-    notify_text = f"📰 Новое мероприятие!\n\n<b>{data['name']}</b>\n\n{data['description'][:300]}...\nПерейдна с"
-    await notify_subscribers(bot, session, notify_text, img, notify_type="events")
 
 
 # --- Изменение события ---
@@ -174,7 +170,7 @@ async def delete_event_confirm(callback: CallbackQuery, session: AsyncSession):
 
 # --- Обновить все события ---
 @admin_events_router.callback_query(F.data == "update_all_events")
-async def update_all_events_handler(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+async def update_all_events_handler(callback: CallbackQuery, session: AsyncSession):
     await callback.message.answer("🔄 Запускаю обновление афиши, пожалуйста подождите...\nПримерное время обновления ~2-3 минуты")
 
     try:
@@ -217,6 +213,3 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
         f"➕ Добавлено: {added}",
         reply_markup=get_admin_events_kb()
     )
-    if added > 0:
-        notify_text = f"📰 Новое обновление в афише!\n\n...Скорее переходите во вкладку \"Афиша\" чтобы ознакомиться!!!\n\n(Потом согласовать/поменять)"
-        await notify_subscribers(bot, session, notify_text, '', notify_type="events")

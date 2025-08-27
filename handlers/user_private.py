@@ -1,4 +1,4 @@
-from aiogram import F, types, Router
+from aiogram import F, types, Router, Bot
 from aiogram.filters import CommandStart, Command, or_f
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
@@ -16,7 +16,7 @@ from handlers.notification import get_subscriptions_kb
 
 
 user_private_router = Router()
-user_private_router.message.filter(ChatTypeFilter(["private"]))##
+user_private_router.message.filter(ChatTypeFilter(["private"]))
 
 keyboard_params =["📆Афиша мероприятий",
             "💃Студии",
@@ -42,10 +42,27 @@ admin_Keyboard_params = ["📆Афиша мероприятий",
 Admin_Default_KBRD = get_keyboard(
            *admin_Keyboard_params,placeholder="Что вас интересует?",sizes=(3, 3, 3)#
         )
+def get_main_menu_kb(message: types.Message):
+
+    buttons = [[
+        InlineKeyboardButton(text = '📆Афиша мероприятий', callback_data="list_events"),
+        InlineKeyboardButton(text="💃Студии", callback_data="list_studios")],
+    [
+        InlineKeyboardButton(text="🗞Новости", callback_data="list_events"),
+        InlineKeyboardButton(text="🖍Подписки", callback_data="event_list")],
+    [
+        InlineKeyboardButton(text="💼Услуги", callback_data="services"),
+        InlineKeyboardButton(text="📍Контакты", callback_data="contacts")],
+    [
+        InlineKeyboardButton(text="💬Помощь", callback_data="help"),]]
+    if  check_message(message):
+        buttons.append([InlineKeyboardButton(text="🛠Панель администратора", callback_data="admin_panel")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-async def Default_Keyboard(message):
-    if await check_message(message):
+
+def Default_Keyboard(message):
+    if  check_message(message):
         return  Admin_Default_KBRD
     else:
         return User_Default_KBRD
@@ -89,13 +106,13 @@ async def process_agree(callback: CallbackQuery):
     )
 @user_private_router.message(or_f(Command('menu'),(F.data == "start_work"),(F.text.lower()[1:] == "меню"),(F.text.lower() == "вернуться")))
 async def show_menu(message: types.Message):
-    await message.answer(f'{menu}',reply_markup= await Default_Keyboard(message))
-
+    await message.answer(f'{menu}',reply_markup= Default_Keyboard(message))
+    # await message.answer(f'{menu}', reply_markup=get_main_menu_kb(message))
 
 @user_private_router.message(or_f(Command('contact'),(F.text.lower()[1:] == ("контакты"))))
 async def echo(message: types.Message):
     await message.answer(contact)
-    await message.answer_location(55.908752,37.743256, reply_markup= await Default_Keyboard(message))
+    await message.answer_location(55.908752,37.743256, reply_markup= Default_Keyboard(message))
 
 
 

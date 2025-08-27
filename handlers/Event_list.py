@@ -15,7 +15,7 @@ EVENTS_PER_PAGE = 8
 def get_events_keyboard(events, page: int, total_pages: int):
     keyboard = [
         [InlineKeyboardButton(
-            text=f"🗓 {ev.date:%d.%m} | {ev.name[:30]}",
+            text=f"🗓 {ev.date:%d.%m} | {ev.name[:30]}+ | +{ev.age_limits}",
             callback_data=f"event_card:{ev.id}:{page}"
         )]
         for ev in events
@@ -39,14 +39,18 @@ def get_events_keyboard(events, page: int, total_pages: int):
 def get_event_card_keyboard(event_id: int, page: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
-        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"event_detail:{event_id}")]
+        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"event_detail:{event_id}")],
+        [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
     ])
 
 
 def get_event_detail_keyboard(event: Events, page: int):
-    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")]]
+    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
+               [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
+               ]
     if event.link:
         buttons.append([InlineKeyboardButton(text="📝 Приобрести билеты", url=event.link)])
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -107,7 +111,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
     desc = event.description or "Нет описания"
     short_desc = desc[:500] + ("…" if len(desc) > 500 else "")
     date_line = f"🗓 {event.date:%d.%m.%Y}\n\n" if getattr(event, "date", None) else ""
-    text = f"<b>{event.name}</b>\n\n{date_line}{short_desc}"
+    text = f"<b>{event.name} | +{event.age_limits}</b>\n\n{date_line}{short_desc}"
 
     kb = get_event_card_keyboard(event.id, page)
 
@@ -131,7 +135,7 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
         return
 
     text = (
-        f"<b>{event.name}</b>\n\n"
+        f"<b>{event.name} | +{event.age_limits}</b>\n\n"
         f"🗓 {event.date:%d.%m.%Y}\n\n"
         f"{event.description or 'Нет описания'}"
     )

@@ -4,6 +4,16 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
+import re
+
+
+def find_age_limits(text: str) -> int:
+    try:
+        matches = re.findall(r"\(\+?(\d{1,2})\+?\)", text)
+        return [int(m) for m in matches][0]
+    except:
+        return 0
+
 
 def update_all_events():
     url = "https://xn----8sbknn9c9d.xn--p1ai/afisha/"
@@ -50,6 +60,7 @@ def update_all_events():
             event_date = main_info.find_element(By.CLASS_NAME, 'modal_more_calendar').find_element(By.TAG_NAME,
                                                                                                    'span').text
             description = main_info.find_element(By.CLASS_NAME, 'modal_more_text').text
+            age_limit = find_age_limits(description)
             event_time = main_info.find_element(By.CLASS_NAME, 'modal_more_time').find_element(By.TAG_NAME, 'span').text
             img = main_info.find_element(By.CLASS_NAME, 'modal_more_image').find_element(By.TAG_NAME,
                                                                                          'img').get_attribute('src')
@@ -64,8 +75,8 @@ def update_all_events():
             hour, minutes = event_time.split(':')
             date = datetime(int(year), int(month[mon.upper()]), int(day), int(hour), int(minutes))
             date_str = f'{str(year)}-{str(month[mon.upper()])}-{str(day)} {str(hour)}:{str(minutes)}'
-            information = [date, description, img, link]
-            information = [date_str, description, img, link]
+            # information = [date, description, img, link]
+            information = [date_str, description,age_limit, img, link]
             data[name] = information
 
         except:

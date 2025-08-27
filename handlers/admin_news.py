@@ -26,7 +26,7 @@ class AddNewsFSM(StatesGroup):
     name = State()
     description = State()
     img = State()
-
+    notify = State()
 class EditNewsFSM(StatesGroup):
     id = State()
     field = State()
@@ -75,11 +75,21 @@ async def add_news_img(message: Message, state: FSMContext, session: AsyncSessio
     await state.update_data(img=img)
     data = await state.get_data()
     await orm_add_news(session, data)
-    await state.clear()
-    await message.answer("✅ Новость добавлена!", reply_markup=get_admin_news_kb())
+    await state.set_state(AddNewsFSM.notify)
+    await message.answer(f"✅ Событие добавлено!\n\nХотите оповестить об этом пользователей?(Да/нет)")
 
-    notify_text = f"📰 Новая новость!\n\n<b>{data['name']}</b>\n\n{data['description'][:300]}..."
-    await notify_subscribers(bot, session, notify_text, img)
+@admin_news_router.message(AddNewsFSM.notify)
+async def add_news_anounse(message: Message, state: FSMContext, session: AsyncSession, bot: Bot):
+    anouncement = True if message.text.lower() in ['yes', 'да', 1] else False
+    if anouncement:
+        data = await state.get_data()
+        text = f"📰 Новая новость!\n\n<b>{data['name']}</b>\n\n{data['description'][:300]}..."
+        await notify_subscribers(bot, session, f"📰 Обновление в новостях! \n\n{text}", data['img'], type_="news")
+        await message.answer('👍Уведомление пользователям успешно отправлено', reply_markup=get_admin_news_kb())
+    else:
+        await message.answer('👍Новость успешно добавлено без оповещения пользователей', reply_markup=get_admin_news_kb())
+    await state.clear()
+
 
 # --- Изменение новости ---
 @admin_news_router.callback_query(F.data == "edit_news")
@@ -142,7 +152,18 @@ async def delete_news_confirm(callback: CallbackQuery, session: AsyncSession):
 
 # --- Обновить все новости ---
 @admin_news_router.callback_query(F.data == "update_all_news")
-async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession):
+async def update_all_news_handler_(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    question_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="C оповещением пользователей", callback_data=f"update_all_news_True")],
+        [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_news_False")]
+    ])
+    await callback.message.answer("Оповестить пользователей?", reply_markup=question_kb)
+@admin_news_router.callback_query(F.data == "update_all_news_")
+async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    try:
+        update = (callback.data.split('_')[3] == str(True))
+    except:
+        update = False
     await callback.message.answer("🔄 Запускаю обновление новостей, пожалуйста подождите...\nПримерное время обновления ~1 минута")
     try:
         data, log_text = await asyncio.to_thread(update_all_news)
@@ -172,7 +193,9 @@ async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession
                 "img": img,
             })
             added += 1
-
+            if update:
+                text = f"{name.capitalize()}"
+                await notify_subscribers(bot, session, f"📰 Обновление в новостях! \n\n{text}", img, type_="news")
     await callback.message.answer(
         f"{log_text}\n\n"
         f"🔄 Обновлено: {updated}\n"

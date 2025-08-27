@@ -57,22 +57,28 @@ async def toggle_subscription(callback: CallbackQuery, session: AsyncSession):
     await callback.message.edit_reply_markup(reply_markup=get_subscriptions_kb(user))
     await callback.answer(text)
 
-async def notify_subscribers(bot: Bot, session: AsyncSession, text: str, img: str = None):
-    # достаём всех подписанных пользователей
-    result = await session.execute(
-        select(Users.id).where(Users.news_subscribed == True)
-    )
-    subscribers = [row[0] for row in result.fetchall()]
+async def notify_subscribers(bot, session, text: str, img: str | None = None, type_: str = "news"):
+    """
+    Рассылает уведомления подписчикам о новостях или событиях.
+    :param bot: экземпляр aiogram.Bot
+    :param session: AsyncSession
+    :param text: текст уведомления
+    :param img: (опционально) ссылка на фото
+    :param type_: "news" или "event"
+    """
+    if type_ == "news":
+        filter_field = Users.news_subscribed
+    else:
+        filter_field = Users.events_subscribed
 
-    if not subscribers:
-        return  # никто не подписан — выходим
+    result = await session.execute(select(Users.user_id).where(filter_field == True))
+    subscribers = result.scalars().all()
 
     for user_id in subscribers:
         try:
             if img:
-                await bot.send_photo(user_id, img, caption=text, parse_mode="HTML")
+                await bot.send_photo(user_id, img, caption=text[:1024], parse_mode="HTML")
             else:
-                await bot.send_message(user_id, text, parse_mode="HTML")
+                await bot.send_message(user_id, text[:4096], parse_mode="HTML")
         except Exception as e:
-            # например, пользователь заблокировал бота
             print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")

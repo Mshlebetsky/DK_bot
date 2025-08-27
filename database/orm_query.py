@@ -162,7 +162,7 @@ async def orm_add_user(session: AsyncSession, user_id: int, username: str = None
     user = await session.get(Users, user_id)
     if not user:
         user = Users(
-            id=user_id,
+            user_id=user_id,
             username=username,
             first_name=first_name,
             last_name=last_name,

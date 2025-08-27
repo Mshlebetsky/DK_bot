@@ -1,6 +1,6 @@
 import asyncio
 
-from aiogram import Router, F, types
+from aiogram import Router, F, types, Bot
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import or_f,Command
 
@@ -15,7 +15,7 @@ from database.orm_query import (
     orm_add_event, orm_update_event, orm_delete_event,
     orm_get_events, orm_get_event_by_name
 )
-from logic.scrap_events import update_all_events
+from logic.scrap_events import update_all_events, find_age_limits
 from handlers.notification import notify_subscribers
 from filter.filter import check_message, IsAdmin, ChatTypeFilter
 
@@ -28,6 +28,7 @@ class AddEventFSM(StatesGroup):
     description = State()
     link = State()
     img = State()
+    notify = State()
 
 class EditEventFSM(StatesGroup):
     id = State()
@@ -80,9 +81,14 @@ async def add_event_date(message: Message, state: FSMContext):
 
 @admin_events_router.message(AddEventFSM.description)
 async def add_event_description(message: Message, state: FSMContext):
+    age_limit = find_age_limits(message.text)
     await state.update_data(description=message.text)
+    await state.update_data(age_limits = age_limit)
     await state.set_state(AddEventFSM.link)
     await message.answer("Введите ссылку на событие (или '-' если нет):")
+
+
+
 
 @admin_events_router.message(AddEventFSM.link)
 async def add_event_link(message: Message, state: FSMContext):
@@ -91,14 +97,27 @@ async def add_event_link(message: Message, state: FSMContext):
     await state.set_state(AddEventFSM.img)
     await message.answer("Отправьте ссылку на изображение (или '-' если нет):")
 
+
+
 @admin_events_router.message(AddEventFSM.img)
 async def add_event_img(message: Message, state: FSMContext, session: AsyncSession):
     img = None if message.text == "-" else message.text
     await state.update_data(img=img)
     data = await state.get_data()
     await orm_add_event(session, data)
+    await state.set_state(AddEventFSM.notify)
+    await message.answer(f"✅ Событие добавлено!\n\nХотите оповестить об этом пользователей?(Да/нет)")
+
+@admin_events_router.message(AddEventFSM.notify)
+async def add_event_anounse(message: Message, state: FSMContext, session: AsyncSession,bot : Bot):
+    anouncement = True if message.text.lower() in ['yes', 'да', 1] else False
+    if anouncement:
+        data = await state.get_data()
+        await notify_subscribers(bot, session, f"📰 Новое мероприятие: {data['name']} \n\n{data['date']}", data['img'], type_="events")
+        await message.answer('👍Уведомление пользователям успешно отправлено', reply_markup=get_admin_events_kb())
+    else:
+        await message.answer('👍Мероприятие успешно добавлено без оповещения пользователей', reply_markup=get_admin_events_kb())
     await state.clear()
-    await message.answer("✅ Событие добавлено!", reply_markup=get_admin_events_kb())
 
 
 # --- Изменение события ---
@@ -170,7 +189,18 @@ async def delete_event_confirm(callback: CallbackQuery, session: AsyncSession):
 
 # --- Обновить все события ---
 @admin_events_router.callback_query(F.data == "update_all_events")
-async def update_all_events_handler(callback: CallbackQuery, session: AsyncSession):
+async def update_all_events_handler_(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    question_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="C оповещением пользователей", callback_data=f"update_all_events_True")],
+        [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_events_False")]
+    ])
+    await callback.message.answer("Оповестить пользователей?", reply_markup=question_kb)
+@admin_events_router.callback_query(F.data.startswith("update_all_events_"))
+async def update_all_events_handler(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    try:
+        update = (callback.data.split('_')[3] == str(True))
+    except:
+        update = False
     await callback.message.answer("🔄 Запускаю обновление афиши, пожалуйста подождите...\nПримерное время обновления ~2-3 минуты")
 
     try:
@@ -183,7 +213,7 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
     from datetime import datetime
     for name, values in data.items():
         try:
-            event_date, description, img, link = values
+            event_date, description, age_limits, img, link = values
         except ValueError:
             await callback.message.answer(f"⚠ Ошибка формата данных: {name}")
             continue
@@ -193,6 +223,7 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
             await orm_update_event(session, event.id, {
                 "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
                 "description": description,
+                "age_limits" : age_limits,
                 "img": img,
                 "link": link
             })
@@ -202,11 +233,14 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
                 "name": name,
                 "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
                 "description": description,
+                "age_limits": age_limits,
                 "img": img,
                 "link": link
             })
             added += 1
-
+            if update:
+                text = f"{str(update)}\n{name.capitalize()} | +{age_limits}\n\n{event_date}"
+                await notify_subscribers(bot, session, f"📰 Обновление в афише! \n\n{text}", img, type_="events")
     await callback.message.answer(
         f"{log_text}\n\n"
         f"🔄 Обновлено: {updated}\n"

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy import String, Float, Text, DateTime, func, Boolean, INTEGER
+from sqlalchemy import String, Float, Text, DateTime, func, Boolean, INTEGER, BigInteger
 
 
 class Base(DeclarativeBase):
@@ -25,6 +25,7 @@ class Events(Base):
     name: Mapped[str] = mapped_column(Text)
     date: Mapped[datetime] = mapped_column(DateTime)
     description: Mapped[str] = mapped_column(Text)
+    age_limits: Mapped[int] = mapped_column(INTEGER)
     link: Mapped[str] = mapped_column(Text, nullable=True, default=None)
     is_free: Mapped[bool] = mapped_column(Boolean, default=False)
     img: Mapped[str] = mapped_column(Text, nullable=True, default=None)
@@ -52,7 +53,7 @@ class Studios(Base):
 class Users(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger,primary_key=True)
     username: Mapped[str] = mapped_column(String, nullable=True)
     first_name: Mapped[str] = mapped_column(String, nullable=True)
     last_name: Mapped[str] = mapped_column(String, nullable=True)

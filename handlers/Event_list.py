@@ -34,7 +34,7 @@ def get_events_keyboard(events, page: int, total_pages: int):
         )
     if nav_buttons:
         keyboard.append(nav_buttons)
-        keyboard.append([InlineKeyboardButton(text='В главное меню')])
+        keyboard.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 

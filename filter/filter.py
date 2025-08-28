@@ -30,4 +30,8 @@ def check_message(message: types.Message) -> bool:
     return str(message.from_user.id) in admins_list
 def get_admins_ids() -> list[str]:
     return os.getenv("ADMINS_LIST").replace(' ', '').split(',')
-# print(admins_list)
+def check_user(user :types.User) -> bool:
+    admins_list = os.getenv("ADMINS_LIST").replace(' ', '').split(',')
+    return str(user.id) in admins_list
+
+# check_user()

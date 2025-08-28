@@ -35,10 +35,20 @@ admin_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
 async def admin_panel(message: types.Message):
     await message.answer(f'{admin_welcome}', reply_markup=ADMIN_KB)
 
+
+from handlers.menu2 import render_main_menu
+
+
 def admin_panel_menu():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text='Редактировать Афишу', callback_data="q")],
-        [InlineKeyboardButton(text='Редактировать Студии', callback_data="q")],
-        [InlineKeyboardButton(text='Редактировать Новости', callback_data="q")],
-        [InlineKeyboardButton(text='Редактировать Администраторов', callback_data="q")]
+        [InlineKeyboardButton(text='Редактировать Афишу', callback_data="edit_events_panel")],
+        [InlineKeyboardButton(text='Редактировать Студии', callback_data="edit_studios_panel")],
+        [InlineKeyboardButton(text='Редактировать Новости', callback_data="edit_news_panel")],
+        [InlineKeyboardButton(text='Редактировать Администраторов', callback_data="edit_admins_panel")],
+        [InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')]
+
     ])
+
+@admin_router.callback_query(F.data == 'admin_panel')
+async def admin_menu2(callback : CallbackQuery):
+    await callback.message.edit_text(admin_welcome, reply_markup=admin_panel_menu())

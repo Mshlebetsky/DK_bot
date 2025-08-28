@@ -27,7 +27,9 @@ def get_main_menu_kb(message: types.Message):
 
 menu2_router = Router()
 menu2_router.message.filter(ChatTypeFilter(["private"]))
-
+def render_main_menu():
+    text = 'Добро пожаловать в тестовое главное меню'
+    await
 @menu2_router.message(Command('menu2'))
 async def menu2_(message: types.Message):
     await message.answer('Тестовая страница второго меню', reply_markup=get_main_menu_kb(message))
@@ -36,3 +38,5 @@ from data.text import menu
 @menu2_router.callback_query(F.data == 'help')
 async def help_(callback_query: CallbackQuery):
     await callback_query.message.edit_text(menu, reply_markup=get_main_menu_kb(callback_query.message))
+
+@menu2_router.callback_query

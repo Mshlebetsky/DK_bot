@@ -23,6 +23,7 @@ from handlers.Event_list import event_router
 from handlers.News_list import news_router
 from handlers.notification import notificate_router
 from handlers.Serviсes import servises_router
+from handlers.menu2 import menu2_router
 
 from logic.cmd_list import private
 
@@ -35,6 +36,7 @@ bot.my_admins_list = get_admins_ids()
 
 dp = Dispatcher()
 
+dp.include_router(menu2_router)
 dp.include_router(news_router)
 dp.include_router(notificate_router)
 dp.include_router(user_private_router)
@@ -54,17 +56,20 @@ async def on_startup(bot):
     await create_db()
 
 async def on_shutdown(bot):
-    print('sosi bot umer')
+    print('bot umer')
 async def main():
-    dp.startup.register(on_startup)
-    dp.shutdown.register(on_shutdown)
+    while True:
+        try:
+            dp.startup.register(on_startup)
+            dp.shutdown.register(on_shutdown)
+            dp.update.middleware(DataBaseSession(session_pool=session_maker))
+            await bot.delete_webhook(drop_pending_updates=True)
+            await bot.set_my_commands(commands=private, scope=types.BotCommandScopeAllPrivateChats())
+            await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
+        except Exception as e:
+            print(f'Ошибка polling{e}')
+        else:
+            break
 
-    dp.update.middleware(DataBaseSession(session_pool=session_maker))
-
-    await bot.delete_webhook(drop_pending_updates=True)
-
-    await bot.set_my_commands(commands=private, scope=types.BotCommandScopeAllPrivateChats())
-
-    await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
 
 asyncio.run(main())

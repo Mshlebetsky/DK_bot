@@ -62,3 +62,13 @@ class Users(Base):
     news_subscribed: Mapped[bool] = mapped_column(Boolean ,default=False)
     events_subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
     admin : Mapped[bool] = mapped_column(Boolean, default=False)
+
+class UserEventTracking(Base):
+    __tablename__ = "user_event_tracking"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger)
+    event_id: Mapped[int] = mapped_column(INTEGER)
+
+    # Когда пользователь подписался (для контроля)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())

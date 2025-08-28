@@ -53,6 +53,7 @@ def get_admin_studios_kb():
         [InlineKeyboardButton(text="🗑 Удалить студию", callback_data="delete_studio")],
         [InlineKeyboardButton(text="📋 Список студий", callback_data="list_studios")],
         [InlineKeyboardButton(text="🔄 Обновить все студии", callback_data="update_all_studios")],
+        [InlineKeyboardButton(text="🛠В панель администратора", callback_data="admin_panel")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -61,6 +62,10 @@ def get_admin_studios_kb():
 @admin_studios_router.message(or_f((F.text == "Редактировать Студии"),Command('edit_studios')))
 async def admin_studios_menu(message: Message):
     await message.answer("Меню управления студиями:", reply_markup=get_admin_studios_kb())
+
+@admin_studios_router.callback_query(F.data == 'edit_studios_panel')
+async def admin_events_menu(callback: CallbackQuery):
+    await callback.message.edit_text("Меню управления студиями:", reply_markup=get_admin_studios_kb())
 
 
 # --- Добавление студии ---

@@ -41,6 +41,7 @@ def get_admin_news_kb():
         [InlineKeyboardButton(text="🗑 Удалить новость", callback_data="delete_news")],
         [InlineKeyboardButton(text="📋 Список новостей", callback_data="list_news")],
         [InlineKeyboardButton(text="🔄 Обновить все новости", callback_data="update_all_news")],
+        [InlineKeyboardButton(text="🛠В панель администратора", callback_data="admin_panel")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -50,6 +51,9 @@ def get_admin_news_kb():
 async def admin_news_menu(message: Message):
     await message.answer("Меню управления новостями:", reply_markup=get_admin_news_kb())
 
+@admin_news_router.callback_query(F.data == 'edit_news_panel')
+async def admin_events_menu(callback: CallbackQuery):
+    await callback.message.edit_text("Меню управления новостями:", reply_markup=get_admin_news_kb())
 
 # --- Добавление новости ---
 @admin_news_router.callback_query(F.data == "add_news")
@@ -157,7 +161,7 @@ async def update_all_news_handler_(callback: CallbackQuery, session: AsyncSessio
         [InlineKeyboardButton(text="C оповещением пользователей", callback_data=f"update_all_news_True")],
         [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_news_False")]
     ])
-    await callback.message.answer("Оповестить пользователей?", reply_markup=question_kb)
+    await callback.message.answer("Оповестить пользователей?",  reply_markup=question_kb)
 @admin_news_router.callback_query(F.data.startswith("update_all_news_"))
 async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     try:

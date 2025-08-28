@@ -20,7 +20,9 @@ def get_news_card_keyboard(news_id: int):
                 InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"news_detail:{news_id}")],
                 [InlineKeyboardButton(text="⏮ Назад", callback_data=f"news_next:{news_id}"),
                 InlineKeyboardButton(text="⏭ Далее", callback_data=f"news_prev:{news_id}")],
-            ]
+                [InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')]
+
+        ]
 
     )
 
@@ -41,6 +43,7 @@ def get_all_news_keyboard(news, page: int, total_pages: int):
         nav_buttons.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"all_news_page:{page+1}"))
     if nav_buttons:
         keyboard.append(nav_buttons)
+        keyboard.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -90,7 +93,6 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
     kb = get_news_card_keyboard(news.id)
 
     target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback
-#popopo popo po
     try:
         if news.img:
             # если есть картинка — всегда удаляем предыдущее сообщение

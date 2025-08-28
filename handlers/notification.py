@@ -1,9 +1,10 @@
 from aiogram import Router, types, F
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from aiogram import Bot
 from database.models import Users
 
+from datetime import datetime, timedelta
+from database.models import Events, UserEventTracking
 from filter.filter import ChatTypeFilter
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from database.orm_query import orm_get_user, orm_update_user_subscription, orm_get_subscribers
@@ -26,7 +27,7 @@ def get_subscriptions_kb(user):
         buttons.append([InlineKeyboardButton(text="✅ Вы подписаны на афишу", callback_data="unsub_events")])
     else:
         buttons.append([InlineKeyboardButton(text="❌ Вы не подписаны на афишу", callback_data="sub_events")])
-
+    buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -35,6 +36,11 @@ async def show_subscriptions(message: types.Message, session: AsyncSession):
     user = await orm_get_user(session, message.from_user.id)
     text = f"Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
     await message.answer("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
+@notificate_router.callback_query(F.data == 'notifications_')
+async def show_subscriptions_(callback: CallbackQuery, session: AsyncSession):
+    user = await orm_get_user(session, callback.from_user.id)
+    text = f"Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
+    await callback.message.edit_text("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
 
 
 @notificate_router.callback_query(F.data.in_(["sub_news", "unsub_news", "sub_events", "unsub_events"]))
@@ -83,3 +89,37 @@ async def notify_subscribers(bot, session, text: str, img: str | None = None, ty
                 await bot.send_message(user_id, text[:4096], parse_mode="HTML")
         except Exception as e:
             print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
+
+async def send_event_reminders(bot, session):
+    now = datetime.now().date()
+
+    # выбираем события, которые будут через 3 дня или через 1 день
+    result = await session.execute(
+        select(Events)
+        .where(Events.date.in_([now + timedelta(days=3), now + timedelta(days=1)]))
+    )
+    events = result.scalars().all()
+
+    for event in events:
+        # находим всех пользователей, кто отслеживает это событие
+        tracking_users = await session.execute(
+            select(UserEventTracking.user_id).where(UserEventTracking.event_id == event.id)
+        )
+        user_ids = tracking_users.scalars().all()
+
+        text = (
+            f"🔔 Напоминание!\n\n"
+            f"Через {'3 дня' if event.date.date() == now + timedelta(days=3) else '1 день'} состоится мероприятие:\n\n"
+            f"<b>{event.name}</b>\n"
+            f"🗓 {event.date:%d.%m.%Y}\n\n"
+            f"{event.description[:200]}..."
+        )
+
+        for user_id in user_ids:
+            try:
+                if event.img:
+                    await bot.send_photo(user_id, event.img, caption=text, parse_mode="HTML")
+                else:
+                    await bot.send_message(user_id, text, parse_mode="HTML")
+            except Exception as e:
+                print(f"Не удалось отправить напоминание {user_id}: {e}")

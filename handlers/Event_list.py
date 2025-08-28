@@ -4,9 +4,9 @@ from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, insert, delete
 
-from database.models import Events
+from database.models import Events, UserEventTracking
 from database.orm_query import orm_get_event
 
 event_router = Router()
@@ -34,6 +34,7 @@ def get_events_keyboard(events, page: int, total_pages: int):
         )
     if nav_buttons:
         keyboard.append(nav_buttons)
+        keyboard.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
 
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -46,14 +47,22 @@ def get_event_card_keyboard(event_id: int, page: int):
     ])
 
 
-def get_event_detail_keyboard(event: Events, page: int):
+def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = False):
     buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
                [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
                ]
+
     if event.link:
         buttons.append([InlineKeyboardButton(text="📝 Приобрести билеты", url=event.link)])
 
+    # 👇 Добавляем кнопку отслеживания
+    if is_tracking:
+        buttons.append([InlineKeyboardButton(text="✅ Отслеживается", callback_data=f"untrack_event:{event.id}:{page}")])
+    else:
+        buttons.append([InlineKeyboardButton(text="🔔 Отслеживать", callback_data=f"track_event:{event.id}:{page}")])
+
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 
 # ---------- Рендеры ----------
@@ -151,7 +160,15 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
         f"{event.description or 'Нет описания'}"
     )
 
-    kb = get_event_detail_keyboard(event, page)
+    tracking = await session.execute(
+        select(UserEventTracking).where(
+            UserEventTracking.user_id == callback.from_user.id,
+            UserEventTracking.event_id == event_id
+        )
+    )
+    is_tracking = tracking.scalars().first() is not None
+
+    kb = get_event_detail_keyboard(event, page, is_tracking=is_tracking)
 
     try:
         await callback.message.delete()
@@ -195,3 +212,39 @@ async def event_detail_handler(callback: CallbackQuery, session: AsyncSession):
     _, event_id = callback.data.split(":")
     # сюда передаём page=1, либо можно прокидывать динамически
     await render_event_detail(callback, session, int(event_id), page=1)
+
+@event_router.callback_query(F.data.startswith("track_event:"))
+async def track_event_handler(callback: CallbackQuery, session: AsyncSession):
+    _, event_id, page = callback.data.split(":")
+    user_id = callback.from_user.id
+
+    # Проверка, не отслеживает ли уже
+    existing = await session.execute(
+        select(UserEventTracking).where(
+            UserEventTracking.user_id == user_id,
+            UserEventTracking.event_id == int(event_id)
+        )
+    )
+    if not existing.scalars().first():
+        session.add(UserEventTracking(user_id=user_id, event_id=int(event_id)))
+        await session.commit()
+
+    await callback.answer("✅ Вы подписались на напоминания")
+    await render_event_detail(callback, session, int(event_id), int(page))
+
+
+@event_router.callback_query(F.data.startswith("untrack_event:"))
+async def untrack_event_handler(callback: CallbackQuery, session: AsyncSession):
+    _, event_id, page = callback.data.split(":")
+    user_id = callback.from_user.id
+
+    await session.execute(
+        delete(UserEventTracking).where(
+            UserEventTracking.user_id == user_id,
+            UserEventTracking.event_id == int(event_id)
+        )
+    )
+    await session.commit()
+
+    await callback.answer("❌ Напоминание снято")
+    await render_event_detail(callback, session, int(event_id), int(page))

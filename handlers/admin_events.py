@@ -44,6 +44,7 @@ def get_admin_events_kb():
         [InlineKeyboardButton(text="🗑 Удалить событие", callback_data="delete_event")],
         [InlineKeyboardButton(text="📋 Список событий", callback_data="list_events")],
         [InlineKeyboardButton(text="🔄 Обновить все события", callback_data="update_all_events")],
+        [InlineKeyboardButton(text="🛠В панель администратора", callback_data="admin_panel")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -52,6 +53,9 @@ def get_admin_events_kb():
 async def admin_events_menu(message: Message):
     await message.answer("Меню управления событиями:", reply_markup=get_admin_events_kb())
 
+@admin_events_router.callback_query(F.data == 'edit_events_panel')
+async def admin_events_menu(callback: CallbackQuery):
+    await callback.message.edit_text("Меню управления событиями:", reply_markup=get_admin_events_kb())
 # --- Добавление события ---
 @admin_events_router.callback_query(F.data == "add_event")
 async def add_event_start(callback: CallbackQuery, state: FSMContext):

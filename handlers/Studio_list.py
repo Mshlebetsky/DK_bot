@@ -33,14 +33,14 @@ def get_studios_keyboard(studios, page: int, total_pages: int):
         )
     if nav_buttons:
         keyboard.append(nav_buttons)
-
+        keyboard.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
 def get_studio_card_keyboard(studio_id: int, page: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"studios_page:{page}")],
-        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"studio_detail:{studio_id}:{page}")]
+        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"studio_detail:{studio_id}:{page}")],
     ])
 
 
@@ -161,22 +161,6 @@ async def render_studio_detail(callback: CallbackQuery, studio: Studios, page: i
     await callback.answer()
 
 
-
-# --- Назад из детальной к краткой ---
-# @studios_router.callback_query(F.data.startswith("studio_back_card:"))
-# async def back_to_card(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
-#     data = await state.get_data()
-#     studio_id, page = map(int, callback.data.split(":")[1:])
-#     studio = await orm_get_studio(session, studio_id)
-#
-#     # Удаляем все detail-сообщения
-#     for msg_id in data.get("detail_msg_ids", []):
-#         try:
-#             await callback.bot.delete_message(callback.message.chat.id, msg_id)
-#         except Exception:
-#             pass
-#
-#     await render_studio_card(callback, studio, page, state)
 
 
 # --- Назад из карточки в список ---

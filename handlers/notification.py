@@ -27,7 +27,7 @@ def get_subscriptions_kb(user):
         buttons.append([InlineKeyboardButton(text="✅ Вы подписаны на афишу", callback_data="unsub_events")])
     else:
         buttons.append([InlineKeyboardButton(text="❌ Вы не подписаны на афишу", callback_data="sub_events")])
-
+    buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -36,6 +36,11 @@ async def show_subscriptions(message: types.Message, session: AsyncSession):
     user = await orm_get_user(session, message.from_user.id)
     text = f"Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
     await message.answer("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
+@notificate_router.callback_query(F.data == 'notifications_')
+async def show_subscriptions_(callback: CallbackQuery, session: AsyncSession):
+    user = await orm_get_user(session, callback.from_user.id)
+    text = f"Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
+    await callback.message.edit_text("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
 
 
 @notificate_router.callback_query(F.data.in_(["sub_news", "unsub_news", "sub_events", "unsub_events"]))

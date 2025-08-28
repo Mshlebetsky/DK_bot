@@ -147,7 +147,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
 
     await callback.answer()
 
-
+from datetime import time
 async def render_event_detail(callback: CallbackQuery, session: AsyncSession, event_id: int, page: int):
     event = await orm_get_event(session, event_id)
     if not event:
@@ -156,7 +156,7 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
 
     text = (
         f"<b>{event.name} | +{event.age_limits}</b>\n\n"
-        f"🗓 {event.date:%d.%m.%Y}\n\n"
+        f"🗓 {event.date:%d.%m.%Y}\t\t{event.date.hour}:{"00" if event.date.minute == 0 else event.date.minute}\n\n"
         f"{event.description or 'Нет описания'}"
     )
 
@@ -175,11 +175,11 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
     except Exception:
         pass
 
-    if event.img:
-        await callback.message.answer_photo(event.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
-    else:
-        await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
-
+    # if event.img:
+    #     await callback.message.answer_photo(event.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
+    # else:
+    #     await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+    await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
     await callback.answer()
 
 

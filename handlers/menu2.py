@@ -6,7 +6,7 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import orm_get_user, orm_add_user
 from filter.filter import check_user, ChatTypeFilter
-from data.text import menu, contact
+from data.text import menu, contact, help
 from handlers.Serviсes import get_services_kb
 
 
@@ -76,7 +76,7 @@ async def menu2_(message: types.Message, session: AsyncSession):
 # ---------- Помощь ----------
 @menu2_router.callback_query(F.data == "help")
 async def help_(callback_query: CallbackQuery):
-    await callback_query.message.edit_text(menu, reply_markup=get_main_menu_kb(callback_query.from_user))
+    await callback_query.message.edit_text(help, reply_markup=get_main_menu_kb(callback_query.from_user))
 
 
 # ---------- Главное меню (назад) ----------

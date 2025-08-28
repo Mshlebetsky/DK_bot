@@ -118,7 +118,7 @@ def update_all_studios():
         pass
     end_time = time.time()
     elapsed_time = end_time - start_time
-    text = f"Обновление завершено за {elapsed_time} секунд"
+    text = f"Обновление завершено за {round(elapsed_time)} сек"
     if error_counter > 0:
         text += f'\nБыло обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении'
     driver.close()

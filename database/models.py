@@ -1,4 +1,5 @@
 from datetime import datetime
+from email.policy import default
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Float, Text, DateTime, func, Boolean, INTEGER, BigInteger
@@ -54,9 +55,9 @@ class Users(Base):
     __tablename__ = "users"
 
     user_id: Mapped[int] = mapped_column(BigInteger,primary_key=True)
-    username: Mapped[str] = mapped_column(String, nullable=True)
-    first_name: Mapped[str] = mapped_column(String, nullable=True)
-    last_name: Mapped[str] = mapped_column(String, nullable=True)
+    username: Mapped[str] = mapped_column(String, default= '', nullable=True)
+    first_name: Mapped[str] = mapped_column(String, default= '' ,nullable=True)
+    last_name: Mapped[str] = mapped_column(String, default= '', nullable=True)
     subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
     news_subscribed: Mapped[bool] = mapped_column(Boolean ,default=False)
     events_subscribed: Mapped[bool] = mapped_column(Boolean, default=False)

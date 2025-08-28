@@ -83,7 +83,7 @@ def update_all_events():
             error_counter += 1
     end_time = time.time()
     elapsed_time = end_time - start_time
-    text = f"Обновление завершено за {elapsed_time} секунд"
+    text = f"Обновление завершено за {round(elapsed_time)} сек"
     if error_counter > 0:
         text += f"При обновлении было пропущено {error_counter} мероприятий"
     driver.close()

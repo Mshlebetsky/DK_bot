@@ -24,6 +24,7 @@ def get_main_menu_kb(user: types.User):
             InlineKeyboardButton(text="💼Услуги", callback_data="services"),
             InlineKeyboardButton(text="📍Контакты", callback_data="contacts"),
         ],
+        [InlineKeyboardButton(text="Верификация участника кружков", url="http://uslugi.mosreg.ru")],
         [InlineKeyboardButton(text="💬Помощь", callback_data="help")],
     ]
     if check_user(user):

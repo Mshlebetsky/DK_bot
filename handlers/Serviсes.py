@@ -26,8 +26,9 @@ def get_services_kb():
     buttons = [
         [InlineKeyboardButton(text="Документы", callback_data="show_documents")],
         [InlineKeyboardButton(text="Верификация участника кружков", url="http://uslugi.mosreg.ru")],
-        [InlineKeyboardButton(text="Обратная свясь", url="https://forms.mkrf.ru/e/2579/xTPLeBU7/?ap_orgcode=640160132")],
-        [InlineKeyboardButton(text="Приказ 107", url="https://дк-яуза.рф/upload/iblock/d14/6tpgb3m5717z0eaxa0ghbx386zvtgnut.pdf")],
+        [InlineKeyboardButton(text="Аренда Помещений (прайс)", url="https://дк-яуза.рф/upload/iblock/d14/6tpgb3m5717z0eaxa0ghbx386zvtgnut.pdf")],
+        [InlineKeyboardButton(text="Обратная свясь",
+                              url="https://forms.mkrf.ru/e/2579/xTPLeBU7/?ap_orgcode=640160132")],
         [InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)

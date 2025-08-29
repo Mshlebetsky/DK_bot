@@ -85,7 +85,7 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
         next_two = neighbors[idx + 1: idx + 3]
         if next_two:
             titles = "\n".join(
-                [f"🗞 {n.name[:100] + ("…" if len(n.name) > 100 else "")}" for n in next_two]
+                [f"🗞 {n.name[:100] + ('…' if len(n.name) > 100 else '')}" for n in next_two]
             )
             neighbor_titles.append(f"➡ <i>Следующие:</i>\n{titles}")
 

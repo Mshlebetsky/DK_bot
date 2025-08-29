@@ -156,7 +156,7 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
 
     text = (
         f"<b>{event.name} | +{event.age_limits}</b>\n\n"
-        f"🗓 {event.date:%d.%m.%Y}\t\t{event.date.hour}:{"00" if event.date.minute == 0 else event.date.minute}\n\n"
+        f"🗓 {event.date:%d.%m.%Y}\t\t{event.date.hour}:{'00' if event.date.minute == 0 else event.date.minute}\n\n"
         f"{event.description or 'Нет описания'}"
     )
 

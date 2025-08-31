@@ -1,19 +1,35 @@
 from aiogram import Router, types, F
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from database.models import Users
-
 from datetime import datetime, timedelta
-from database.models import Events, UserEventTracking
+
+from database.models import Users, Events, UserEventTracking
 from filter.filter import ChatTypeFilter
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-from database.orm_query import orm_get_user, orm_update_user_subscription, orm_get_subscribers
+from database.orm_query import orm_get_user, orm_update_user_subscription, orm_add_user
+
 
 notificate_router = Router()
 notificate_router.message.filter(ChatTypeFilter(["private"]))
 
 
-def get_subscriptions_kb(user):
+# ---------- Утилита ----------
+async def get_or_create_user(session: AsyncSession, tg_user: types.User):
+    """Получить пользователя из БД или создать нового"""
+    user = await orm_get_user(session, tg_user.id)
+    if not user:
+        user = await orm_add_user(
+            session,
+            user_id=tg_user.id,
+            username=tg_user.username,
+            first_name=tg_user.first_name,
+            last_name=tg_user.last_name,
+        )
+    return user
+
+
+# ---------- Клавиатура подписок ----------
+def get_subscriptions_kb(user: Users):
     buttons = []
 
     # Новости
@@ -27,22 +43,29 @@ def get_subscriptions_kb(user):
         buttons.append([InlineKeyboardButton(text="✅ Вы подписаны на афишу", callback_data="unsub_events")])
     else:
         buttons.append([InlineKeyboardButton(text="❌ Вы не подписаны на афишу", callback_data="sub_events")])
-    buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
+
+    # Назад
+    buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data="main_menu")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+# ---------- Сообщение (через кнопку) ----------
 @notificate_router.message(F.text == "🔔 Подписки")
 async def show_subscriptions(message: types.Message, session: AsyncSession):
-    user = await orm_get_user(session, message.from_user.id)
-    text = f"Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
-    await message.answer("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
+    user = await get_or_create_user(session, message.from_user)
+    text = "Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
+    await message.answer(text, reply_markup=get_subscriptions_kb(user))
+
+
+# ---------- Callback (из меню) ----------
 @notificate_router.callback_query(F.data == 'notifications_')
 async def show_subscriptions_(callback: CallbackQuery, session: AsyncSession):
-    user = await orm_get_user(session, callback.from_user.id)
-    text = f"Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
-    await callback.message.edit_text("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
+    user = await get_or_create_user(session, callback.from_user)
+    text = "Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
+    await callback.message.edit_text(text, reply_markup=get_subscriptions_kb(user))
 
 
+# ---------- Подписка / Отписка ----------
 @notificate_router.callback_query(F.data.in_(["sub_news", "unsub_news", "sub_events", "unsub_events"]))
 async def toggle_subscription(callback: CallbackQuery, session: AsyncSession):
     user_id = callback.from_user.id
@@ -64,15 +87,9 @@ async def toggle_subscription(callback: CallbackQuery, session: AsyncSession):
     await callback.message.edit_reply_markup(reply_markup=get_subscriptions_kb(user))
     await callback.answer(text)
 
-async def notify_subscribers(bot, session, text: str, img: str | None = None, type_: str = "news"):
-    """
-    Рассылает уведомления подписчикам о новостях или событиях.
-    :param bot: экземпляр aiogram.Bot
-    :param session: AsyncSession
-    :param text: текст уведомления
-    :param img: (опционально) ссылка на фото
-    :param type_: "news" или "event"
-    """
+
+# ---------- Рассылка новостей и событий ----------
+async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | None = None, type_: str = "news"):
     if type_ == "news":
         filter_field = Users.news_subscribed
     else:
@@ -83,25 +100,24 @@ async def notify_subscribers(bot, session, text: str, img: str | None = None, ty
 
     for user_id in subscribers:
         try:
-            if img:
+            try:
                 await bot.send_photo(user_id, img, caption=text[:1024], parse_mode="HTML")
-            else:
+            except:
                 await bot.send_message(user_id, text[:4096], parse_mode="HTML")
         except Exception as e:
             print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
 
-async def send_event_reminders(bot, session):
+
+# ---------- Напоминания о мероприятиях ----------
+async def send_event_reminders(bot, session: AsyncSession):
     now = datetime.now().date()
 
-    # выбираем события, которые будут через 3 дня или через 1 день
     result = await session.execute(
-        select(Events)
-        .where(Events.date.in_([now + timedelta(days=3), now + timedelta(days=1)]))
+        select(Events).where(Events.date.in_([now + timedelta(days=3), now + timedelta(days=1)]))
     )
     events = result.scalars().all()
 
     for event in events:
-        # находим всех пользователей, кто отслеживает это событие
         tracking_users = await session.execute(
             select(UserEventTracking.user_id).where(UserEventTracking.event_id == event.id)
         )

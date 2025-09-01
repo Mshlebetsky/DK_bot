@@ -94,7 +94,7 @@ def setup_scheduler(bot: Bot):
         scrap_everything,
         # trigger=CronTrigger(hour="9-21/2", minute=0),
         trigger="interval",
-        minutes=10,
+        minutes=100,
         args=(bot, True),  # True = уведомлять пользователей
     )
 

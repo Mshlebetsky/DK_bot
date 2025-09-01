@@ -2,3 +2,4 @@
 /venv/
 /my_base.db
 /.env
+/bot.log

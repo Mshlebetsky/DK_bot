@@ -7,7 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import orm_get_user, orm_add_user
 from filter.filter import check_user, ChatTypeFilter
 from data.text import menu, contact, help
+from handlers.Event_list import render_event_list
+from handlers.News_list import render_all_news
 from handlers.Serviсes import get_services_kb
+from handlers.Studio_list import render_studio_list
+from handlers.notification import get_subscriptions_kb
 
 
 def get_main_menu_kb(user: types.User):
@@ -115,9 +119,56 @@ async def contact_(callback: CallbackQuery, state: FSMContext):
     await state.update_data(location_msg_id=location_msg.message_id)
 
     await callback.message.edit_text(contact, reply_markup=contact_kb)
-
+@menu2_router.message(Command('contact'))
+async def contacts_comand(message: types.Message):
+    contact_kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Tg", url="https://t.me/mdkjauza"),
+                InlineKeyboardButton(text="VK", url="https://vk.com/mdkjauza"),
+            ],
+            [InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')]
+        ]
+    )
+    await message.answer_location(55.908752, 37.743256)
+    await message.answer(contact, reply_markup=contact_kb)
 
 # ---------- Услуги ----------
 @menu2_router.callback_query(F.data == "services")
 async def services_(callback: CallbackQuery):
     await callback.message.edit_text("Дополнительные услуги", reply_markup=get_services_kb())
+
+
+#--------------Студии -----------
+
+@menu2_router.message(Command('studios'))
+async def show_studios(message: types.Message, session: AsyncSession):
+    await render_studio_list(message,session)
+
+# ------------Новости -----------
+@menu2_router.message(Command('news'))
+async def echo(message: types.Message, session: AsyncSession):
+    await render_all_news(message,session)
+
+# ------------Афиша-------------
+@menu2_router.message(Command('events'))
+async def events_list_command(message: types.Message, session: AsyncSession):
+    await render_event_list(message, session, page=1)
+
+#
+
+@menu2_router.message(Command('notification'))
+async def notification(message: types.Message, session: AsyncSession):
+    await orm_add_user(
+        session,
+        user_id=message.from_user.id,
+        username=message.from_user.username,
+        first_name=message.from_user.first_name,
+        last_name=message.from_user.last_name
+
+    )
+    user = await orm_get_user(session, message.from_user.id)
+    await message.answer(
+        "Выберите подписки:",
+        reply_markup=get_subscriptions_kb(user)
+    )

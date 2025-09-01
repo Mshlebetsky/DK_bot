@@ -61,7 +61,6 @@ class Users(Base):
     subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
     news_subscribed: Mapped[bool] = mapped_column(Boolean ,default=False)
     events_subscribed: Mapped[bool] = mapped_column(Boolean, default=False)
-    admin : Mapped[bool] = mapped_column(Boolean, default=False)
 
 class UserEventTracking(Base):
     __tablename__ = "user_event_tracking"
@@ -72,3 +71,10 @@ class UserEventTracking(Base):
 
     # Когда пользователь подписался (для контроля)
     # created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
+
+class Admin(Base):
+    __tablename__ = "admins"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(BigInteger)
+    role: Mapped[str] = mapped_column(String, default="editor")  # "editor" | "superadmin"

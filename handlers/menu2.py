@@ -4,9 +4,11 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
+
 from database.orm_query import orm_get_user, orm_add_user
 from filter.filter import check_user, ChatTypeFilter
-from data.text import menu, contact, help
+from data.text import contact, help
 from handlers.Event_list import render_event_list
 from handlers.News_list import render_all_news
 from handlers.Serviсes import get_services_kb
@@ -42,7 +44,7 @@ menu2_router.message.filter(ChatTypeFilter(["private"]))
 
 # ---------- Главное меню ----------
 async def render_main_menu(target: types.Message | CallbackQuery, session: AsyncSession):
-    text = "Добро пожаловать в тестовое главное меню"
+    text = "🏠 Главное меню"
 
     if isinstance(target, CallbackQuery):
         user = target.from_user
@@ -73,7 +75,7 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
         await target.answer(text, reply_markup=kb)
 
 
-@menu2_router.message(Command("menu2"))
+@menu2_router.message(Command("menu"))
 async def menu2_(message: types.Message, session: AsyncSession):
     await render_main_menu(message, session)
 
@@ -82,6 +84,10 @@ async def menu2_(message: types.Message, session: AsyncSession):
 @menu2_router.callback_query(F.data == "help")
 async def help_(callback_query: CallbackQuery):
     await callback_query.message.edit_text(help, reply_markup=get_main_menu_kb(callback_query.from_user))
+
+@menu2_router.message(Command('help'))
+async def help_comand(message: types.Message):
+    await message.answer(help, reply_markup=get_main_menu_kb(message.from_user))
 
 
 # ---------- Главное меню (назад) ----------

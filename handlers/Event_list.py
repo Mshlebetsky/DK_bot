@@ -17,7 +17,7 @@ EVENTS_PER_PAGE = 8
 def get_events_keyboard(events, page: int, total_pages: int):
     keyboard = [
         [InlineKeyboardButton(
-            text=f"🗓 {ev.date:%d.%m} | {ev.name[:30]}+ | +{ev.age_limits}",
+            text=f"🗓 {ev.date:%d.%m} | {ev.name[:30]}+ | {ev.age_limits}+",
             callback_data=f"event_card:{ev.id}:{page}"
         )]
         for ev in events
@@ -133,9 +133,9 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
         return
 
     desc = event.description or "Нет описания"
-    short_desc = desc[:450] + ("… \n\n<i>нажмите на \"подробднее\", чтобы прочитать полностью</i>" if len(desc) > 450 else "")
+    short_desc = desc[:450] + ("… \n\n<i>нажмите на \"подробнее\", чтобы прочитать полностью</i>" if len(desc) > 450 else "")
     date_line = f"🗓 {event.date:%d.%m.%Y}\n\n" if getattr(event, "date", None) else ""
-    text = f"<b>{event.name} | +{event.age_limits}</b>\n\n{date_line}{short_desc}"
+    text = f"<b>{event.name} | {event.age_limits}+ </b>\n\n{date_line}{short_desc}"
 
     kb = get_event_card_keyboard(event.id, page)
 
@@ -159,7 +159,7 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
         return
 
     text = (
-        f"<b>{event.name} | +{event.age_limits}</b>\n\n"
+        f"<b>{event.name} | {event.age_limits}+</b>\n\n"
         f"🗓 {event.date:%d.%m.%Y}\t\t{event.date.hour}:{'00' if event.date.minute == 0 else event.date.minute}\n\n"
         f"{event.description or 'Нет описания'}"
     )

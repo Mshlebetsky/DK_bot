@@ -1,5 +1,9 @@
 import os
 from dotenv import find_dotenv, load_dotenv
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from database.models import Admin
 
 load_dotenv(find_dotenv())
 
@@ -34,4 +38,15 @@ def check_user(user :types.User) -> bool:
     admins_list = os.getenv("ADMINS_LIST").replace(' ', '').split(',')
     return str(user.id) in admins_list
 
-# check_user()
+class IsSuperAdmin(Filter):
+    async def __call__(self, message: types.Message, bot: Bot) -> bool:
+        return str(message.from_user.id) in bot.my_admins_list
+
+
+class IsEditor(Filter):
+    async def __call__(self, message: types.Message, session: AsyncSession) -> bool:
+        # проверяем в БД
+        result = await session.execute(
+            select(Admin).where(Admin.user_id == message.from_user.id, Admin.role == "editor")
+        )
+        return result.scalar_one_or_none() is not None

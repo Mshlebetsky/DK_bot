@@ -2,18 +2,12 @@ from aiogram import F, types, Router, Bot
 from aiogram.filters import CommandStart, Command, or_f
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
-from filter.filter import ChatTypeFilter, check_message
+from filter.filter import ChatTypeFilter, check_message, IsSuperAdmin
 from sqlalchemy.ext.asyncio import AsyncSession
-from database.orm_query import orm_get_user, orm_add_user
-from handlers.menu2 import get_main_menu_kb, help_, render_main_menu
+from database.orm_query import  orm_add_user
+from handlers.menu2 import help_
 
-from replyes.kbrds import get_keyboard
-from data.text import contact, menu, welcome
-
-from handlers.Studio_list import render_studio_list
-from handlers.Event_list import render_event_list
-from handlers.News_list import render_all_news, render_news_card
-from handlers.notification import get_subscriptions_kb
+from data.text import  welcome
 
 
 user_private_router = Router()
@@ -48,3 +42,10 @@ async def process_agree(callback: CallbackQuery, session: AsyncSession):
     # Показываем следующее меню
     await help_(callback)
 
+@user_private_router.message(or_f(Command('check_admin'), lambda msg: msg.text == "Проверить админа"))
+async def if_admin(message: types.Message):
+    await message.answer(f'Ваш id:\t{message.from_user.id}')
+    if  check_message(message):
+        await message.answer('✅Вы админ')
+    else:
+         await message.answer(f'❌У вас нет прав админимстратора')

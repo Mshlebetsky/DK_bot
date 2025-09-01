@@ -33,7 +33,7 @@ async def get_or_create_user(session: AsyncSession, tg_user: types.User):
 
 
 # ---------- Клавиатура подписок ----------
-def get_subscriptions_kb(user: Users):
+def get_subscriptions_kb(user):
     buttons = []
 
     # Новости
@@ -48,24 +48,45 @@ def get_subscriptions_kb(user: Users):
     else:
         buttons.append([InlineKeyboardButton(text="❌ Вы не подписаны на афишу", callback_data="sub_events")])
 
-    # Назад
-    buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data="main_menu")])
+    buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+async def build_subscriptions_text(session, user_id: int) -> str:
+    """
+    Формирует текст для вкладки подписок: подписки + отслеживаемые мероприятия
+    """
+    # Подписки пользователя
+    result = await session.execute(select(UserEventTracking.event_id).where(UserEventTracking.user_id == user_id))
+    event_ids = result.scalars().all()
+
+    text = "Здесь вы можете управлять подписками.\n\n"
+
+    if event_ids:
+        events = await session.execute(select(Events).where(Events.id.in_(event_ids)))
+        events = events.scalars().all()
+
+        text += "📌 Вы отслеживаете следующие мероприятия:\n"
+        for ev in events:
+            text += f" • <b>{ev.name}</b> — {ev.date:%d.%m.%Y}\n"
+    else:
+        text += "📌 Вы пока не отслеживаете мероприятия.\n"
+
+    return text
 
 
 # ---------- Сообщение (через кнопку) ----------
 @notificate_router.message(F.text == "🔔 Подписки")
 async def show_subscriptions(message: types.Message, session: AsyncSession):
-    user = await get_or_create_user(session, message.from_user)
-    text = "Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
+    user = await orm_get_user(session, message.from_user.id)
+    text = await build_subscriptions_text(session, message.from_user.id)
     await message.answer(text, reply_markup=get_subscriptions_kb(user))
 
 
-# ---------- Callback (из меню) ----------
 @notificate_router.callback_query(F.data == 'notifications_')
 async def show_subscriptions_(callback: CallbackQuery, session: AsyncSession):
-    user = await get_or_create_user(session, callback.from_user)
-    text = "Здесь вы можете выбрать, какие уведомления вы будете получать, а также посмотреть отслеживаемые мероприятия"
+    user = await orm_get_user(session, callback.from_user.id)
+    text = await build_subscriptions_text(session, callback.from_user.id)
     await callback.message.edit_text(text, reply_markup=get_subscriptions_kb(user))
 
 

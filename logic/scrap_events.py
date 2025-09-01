@@ -33,7 +33,7 @@ def update_all_events():
     driver = webdriver.Chrome(options=options)
     driver.get(url)
     time.sleep(4)
-
+    error_text = ''
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
     time.sleep(4)
 
@@ -43,14 +43,16 @@ def update_all_events():
         By.CLASS_NAME, 'b-event__slide-item')
     driver.execute_script("arguments[0].scrollIntoView(true);", items[0])
     time.sleep(2)
+
     for item in items:
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
         driver.execute_script("arguments[0].scrollIntoView(true);", item)
         time.sleep(1)
         try:
             item.find_elements(By.TAG_NAME, 'a')[0].click()
-        except:
-            print('error')
+        except Exception as e:
+            # print('error')
+            error_text += f'{e}\n'
             continue
         time.sleep(2)
         try:
@@ -79,13 +81,14 @@ def update_all_events():
             information = [date_str, description,age_limit, img, link]
             data[name] = information
 
-        except:
+        except Exception as e:
             error_counter += 1
+            error_text += f'{e}\n'
     end_time = time.time()
     elapsed_time = end_time - start_time
-    text = f"Обновление завершено за {round(elapsed_time)} сек"
+    text = f"Обновление завершено за {round(elapsed_time)} сек\n"
     if error_counter > 0:
-        text += f"При обновлении было пропущено {error_counter} мероприятий"
+        text += f"При обновлении было пропущено {error_counter} мероприятий со следующими ошибками:\n{error_text}"
     driver.close()
 
     return data, text

@@ -40,11 +40,13 @@ def get_events_keyboard(events, page: int, total_pages: int):
 
 
 def get_event_card_keyboard(event_id: int, page: int):
-    return InlineKeyboardMarkup(inline_keyboard=[
+    buttons = [
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
-        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"event_detail:{event_id}")],
-        [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
-    ])
+        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"event_detail:{event_id}")]
+    ]
+    # Если сайт не меняется, оставь как есть
+    buttons.append([InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = False):
@@ -52,16 +54,18 @@ def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = Fals
                [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
                ]
 
-    if event.link:
+    # Проверяем наличие нормальной ссылки
+    if event.link and isinstance(event.link, str) and event.link.startswith("http"):
         buttons.append([InlineKeyboardButton(text="📝 Приобрести билеты", url=event.link)])
 
-    # 👇 Добавляем кнопку отслеживания
+    # 👇 Кнопки отслеживания
     if is_tracking:
         buttons.append([InlineKeyboardButton(text="✅ Отслеживается", callback_data=f"untrack_event:{event.id}:{page}")])
     else:
         buttons.append([InlineKeyboardButton(text="🔔 Отслеживать", callback_data=f"track_event:{event.id}:{page}")])
 
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
 
 
 
@@ -129,7 +133,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
         return
 
     desc = event.description or "Нет описания"
-    short_desc = desc[:500] + ("…" if len(desc) > 500 else "")
+    short_desc = desc[:450] + ("… \n\n<i>нажмите на \"подробднее\", чтобы прочитать полностью</i>" if len(desc) > 450 else "")
     date_line = f"🗓 {event.date:%d.%m.%Y}\n\n" if getattr(event, "date", None) else ""
     text = f"<b>{event.name} | +{event.age_limits}</b>\n\n{date_line}{short_desc}"
 
@@ -140,9 +144,9 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
     except Exception:
         pass
 
-    if event.img:
+    try:
         await callback.message.answer_photo(event.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
-    else:
+    except:
         await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
 
     await callback.answer()

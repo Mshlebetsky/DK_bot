@@ -1,12 +1,16 @@
 from aiogram import Router, types, F
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from datetime import datetime, timedelta
+from sqlalchemy import select
+import logging
 
 from database.models import Users, Events, UserEventTracking
 from filter.filter import ChatTypeFilter
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from database.orm_query import orm_get_user, orm_update_user_subscription, orm_add_user
+
+
+logger = logging.getLogger("bot.reminders")
 
 
 notificate_router = Router()
@@ -97,11 +101,12 @@ async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | N
 
     result = await session.execute(select(Users.user_id).where(filter_field == True))
     subscribers = result.scalars().all()
-
+    kb_news = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗞Новости", callback_data="list_news")]])
+    kb_events = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📆Афиша мероприятий", callback_data="list_events")]])
     for user_id in subscribers:
         try:
             try:
-                await bot.send_photo(user_id, img, caption=text[:1024], parse_mode="HTML")
+                await bot.send_photo(user_id, img, caption=text[:1024], parse_mode="HTML", reply_markup=kb_news if type_ == 'news' else kb_events)
             except:
                 await bot.send_message(user_id, text[:4096], parse_mode="HTML")
         except Exception as e:
@@ -109,33 +114,55 @@ async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | N
 
 
 # ---------- Напоминания о мероприятиях ----------
-async def send_event_reminders(bot, session: AsyncSession):
+async def send_event_reminders(bot, session):
     now = datetime.now().date()
+    two_weeks = now + timedelta(days=14)
 
+    # выбираем события на ближайшие 2 недели
     result = await session.execute(
-        select(Events).where(Events.date.in_([now + timedelta(days=3), now + timedelta(days=1)]))
+        select(Events).where(Events.date.between(now, two_weeks))
     )
     events = result.scalars().all()
 
+    if not events:
+        logger.info("Нет событий в ближайшие 2 недели")
+        return
+
     for event in events:
+        # находим пользователей, отслеживающих событие
         tracking_users = await session.execute(
             select(UserEventTracking.user_id).where(UserEventTracking.event_id == event.id)
         )
         user_ids = tracking_users.scalars().all()
 
+        if not user_ids:
+            continue
+
+        # считаем разницу в днях
+        days_left = (event.date.date() - now).days
+        if days_left <= 0:
+            continue
+
         text = (
             f"🔔 Напоминание!\n\n"
-            f"Через {'3 дня' if event.date.date() == now + timedelta(days=3) else '1 день'} состоится мероприятие:\n\n"
+            f"Через {days_left} {'день' if days_left == 1 else 'дней'} состоится мероприятие:\n\n"
             f"<b>{event.name}</b>\n"
-            f"🗓 {event.date:%d.%m.%Y}\n\n"
-            f"{event.description[:200]}..."
+            f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
+            f"{(event.description or '')[:200]}..."
         )
 
+        # рассылаем уведомления
         for user_id in user_ids:
             try:
                 if event.img:
-                    await bot.send_photo(user_id, event.img, caption=text, parse_mode="HTML")
+                    try:
+                        await bot.send_photo(user_id, event.img, caption=text, parse_mode="HTML",reply_markup=InlineKeyboardMarkup(
+                            inline_keyboard=[[InlineKeyboardButton(text="📆Афиша мероприятий", callback_data="list_events")]]))
+                    except Exception:
+                        await bot.send_message(user_id, text, parse_mode="HTML")
                 else:
                     await bot.send_message(user_id, text, parse_mode="HTML")
+
+                logger.info(f"Напоминание отправлено пользователю {user_id} о событии {event.id}")
             except Exception as e:
-                print(f"Не удалось отправить напоминание {user_id}: {e}")
+                logger.warning(f"❌ Не удалось отправить {user_id}: {e}")

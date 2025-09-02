@@ -1,8 +1,3 @@
-yauza_bot  | 2025-09-02 23:57:03,147 [INFO] ✅ Планировщик запущен
-yauza_bot  | 2025-09-02 23:57:03,163 [INFO] 🚀 Бот запущен и БД инициализирована
-yauza_bot  | Cause exception while process update id=628588613 by bot id=8139355615
-yauza_bot  | AttributeError: 'NoneType' object has no attribute 'news_subscribed'
-yauza_bot  | Traceback (most recent call last):
 yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
 yauza_bot  |     response = await self.feed_update(bot, update, **kwargs)
 yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -46,79 +41,5 @@ yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/
 yauza_bot  |     return await self._propagate_event(
 yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
-yauza_bot  |     response = await observer.trigger(event, **kwargs)
-yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-yauza_bot  |     return await wrapped_inner(event, kwargs)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-yauza_bot  |     return await wrapped()
-yauza_bot  |            ^^^^^^^^^^^^^^^
-yauza_bot  |   File "/app/handlers/notification.py", line 90, in show_subscriptions_
-yauza_bot  |     await callback.message.edit_text(text, reply_markup=get_subscriptions_kb(user))
-yauza_bot  |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/app/handlers/notification.py", line 40, in get_subscriptions_kb
-yauza_bot  |     if user.news_subscribed:
-yauza_bot  |        ^^^^^^^^^^^^^^^^^^^^
-yauza_bot  | AttributeError: 'NoneType' object has no attribute 'news_subscribed'
-yauza_bot  | Cause exception while process update id=628588614 by bot id=8139355615
-yauza_bot  | AttributeError: 'NoneType' object has no attribute 'news_subscribed'
-yauza_bot  | Traceback (most recent call last):
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
-yauza_bot  |     response = await self.feed_update(bot, update, **kwargs)
-yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
-yauza_bot  |     response = await self.update.wrap_outer_middleware(
-yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
-yauza_bot  |     return await handler(event, data)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
-yauza_bot  |     return await handler(event, data)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
-yauza_bot  |     return await handler(event, data)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-yauza_bot  |     return await wrapped_inner(event, kwargs)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/app/middlewares/db.py", line 43, in __call__
-yauza_bot  |     return await handler(event, data)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-yauza_bot  |     return await wrapped()
-yauza_bot  |            ^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
-yauza_bot  |     return await self.propagate_event(update_type=update_type, event=event, **kwargs)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-yauza_bot  |     return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-yauza_bot  |     return await self._propagate_event(
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 174, in _propagate_event
-yauza_bot  |     response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
-yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
-yauza_bot  |     return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
-yauza_bot  |     return await self._propagate_event(
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
-yauza_bot  |     response = await observer.trigger(event, **kwargs)
-yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
-yauza_bot  |     return await wrapped_inner(event, kwargs)
-yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
-yauza_bot  |     return await wrapped()
-yauza_bot  |            ^^^^^^^^^^^^^^^
-yauza_bot  |   File "/app/handlers/notification.py", line 90, in show_subscriptions_
-yauza_bot  |     await callback.message.edit_text(text, reply_markup=get_subscriptions_kb(user))
-yauza_bot  |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-yauza_bot  |   File "/app/handlers/notification.py", line 40, in get_subscriptions_kb
-yauza_bot  |     if user.news_subscribed:
-yauza_bot  |        ^^^^^^^^^^^^^^^^^^^^
-yauza_bot  | AttributeError: 'NoneType' object has no attribute 'news_subscribed'
+yauza_bot  |     response = aw
+

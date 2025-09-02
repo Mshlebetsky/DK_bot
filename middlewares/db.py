@@ -1,10 +1,12 @@
-from typing import Any, Awaitable, Callable, Dict
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, CallbackQuery, TelegramObject
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from aiogram.types import TelegramObject, Message, CallbackQuery
 
-from database.models import Users   # ⚠️ проверь, чтобы у тебя точно был models/User
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.future import select
+
+from database.models import Users  # ⚠️ подключи свою модель User
 
 
 class DataBaseSession(BaseMiddleware):
@@ -18,32 +20,24 @@ class DataBaseSession(BaseMiddleware):
         data: Dict[str, Any],
     ) -> Any:
         async with self.session_pool() as session:
-            data["session"] = session
+            data['session'] = session
 
-            tg_id = None
-            tg_username = None
-
-            # Поддерживаем и Message, и CallbackQuery
+            user_id: Optional[int] = None
             if isinstance(event, Message):
-                tg_id = event.from_user.id
-                tg_username = event.from_user.username
-            elif isinstance(event, CallbackQuery) and event.from_user:
-                tg_id = event.from_user.id
-                tg_username = event.from_user.username
+                user_id = event.from_user.id
+            elif isinstance(event, CallbackQuery):
+                user_id = event.from_user.id
 
-            if tg_id:
-                user = await session.get(Users, tg_id)
-                if not user:
-                    # создаём нового пользователя
-                    user = Users(id=tg_id, username=tg_username)
+            user: Optional[Users] = None
+            if user_id is not None:
+                result = await session.execute(select(Users).where(Users.user_id == user_id))
+                user = result.scalar_one_or_none()
+                if user is None:
+                    # Создаём нового пользователя с дефолтными настройками
+                    user = Users(user_id=user_id, news_subscribed=False)
                     session.add(user)
                     await session.commit()
-                else:
-                    # обновляем username при изменении
-                    if tg_username and user.username != tg_username:
-                        user.username = tg_username
-                        await session.commit()
 
-                data["user"] = user
+            data['user'] = user
 
             return await handler(event, data)

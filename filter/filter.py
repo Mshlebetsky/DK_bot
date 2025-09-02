@@ -27,8 +27,10 @@ class IsAdmin(Filter):
         return str(message.from_user.id) in bot.my_admins_list
         # return message.from_user.id in [435946390]
 
-
-admins_list = os.getenv("ADMINS_LIST").replace(' ','').split(',')
+try:
+    admins_list = os.getenv("ADMINS_LIST").replace(' ','').split(',')
+except:
+    pass
 def check_message(message: types.Message) -> bool:
     admins_list = os.getenv("ADMINS_LIST").replace(' ', '').split(',')
     return str(message.from_user.id) in admins_list

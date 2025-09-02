@@ -4,7 +4,6 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import defer
 
 from database.orm_query import orm_get_user, orm_add_user
 from filter.filter import check_user, ChatTypeFilter

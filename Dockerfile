@@ -17,7 +17,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # ==========================
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
-    python3-venv \
     wget \
     curl \
     unzip \
@@ -31,13 +30,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrandr2 \
     libgbm-dev \
     libgtk-3-0 \
+    fonts-liberation \
+    xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # ==========================
-# Установка Google Chrome + chromedriver
+# Установка Google Chrome
 # ==========================
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub \
+    | gpg --dearmor -o /usr/share/keyrings/google-linux-signing-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
         > /etc/apt/sources.list.d/google-chrome.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends google-chrome-stable \
@@ -49,7 +51,7 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
 WORKDIR /app
 
 # ==========================
-# Зависимости Python
+# Установка Python-зависимостей
 # ==========================
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -60,16 +62,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # ==========================
-# Создание пользователя и директорий
+# Создание пользователя
 # ==========================
 RUN useradd -ms /bin/bash appuser \
     && mkdir -p /app/data /app/logs \
     && chown -R appuser:appuser /app
-
 USER appuser
 
 # ==========================
-# Значения по умолчанию
+# Переменные окружения по умолчанию
 # ==========================
 ENV DB_LITE="sqlite+aiosqlite:///data/bot.sqlite3"
 

@@ -1,6 +1,8 @@
 import os
 import asyncio
 import logging
+import time
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -145,6 +147,7 @@ async def main():
             logger.error(f"Ошибка в polling: {e}", exc_info=True)
         else:
             break
+        time.sleep(1)
 
 
 if __name__ == "__main__":

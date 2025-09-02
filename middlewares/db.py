@@ -1,12 +1,12 @@
 from typing import Any, Awaitable, Callable, Dict, Optional
 
 from aiogram import BaseMiddleware
-from aiogram.types import TelegramObject, Message, CallbackQuery
+from aiogram.types import TelegramObject, Message, CallbackQuery, User
 
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.future import select
 
-from database.models import Users  # ⚠️ подключи свою модель User
+from database.models import Users
 
 
 class DataBaseSession(BaseMiddleware):
@@ -20,24 +20,31 @@ class DataBaseSession(BaseMiddleware):
         data: Dict[str, Any],
     ) -> Any:
         async with self.session_pool() as session:
-            data['session'] = session
+            data["session"] = session
 
-            user_id: Optional[int] = None
+            tg_user: Optional[User] = None
             if isinstance(event, Message):
-                user_id = event.from_user.id
+                tg_user = event.from_user
             elif isinstance(event, CallbackQuery):
-                user_id = event.from_user.id
+                tg_user = event.from_user
 
             user: Optional[Users] = None
-            if user_id is not None:
-                result = await session.execute(select(Users).where(Users.user_id == user_id))
+            if tg_user is not None:
+                result = await session.execute(select(Users).where(Users.user_id == tg_user.id))
                 user = result.scalar_one_or_none()
+
                 if user is None:
-                    # Создаём нового пользователя с дефолтными настройками
-                    user = Users(user_id=user_id, news_subscribed=False)
+                    # Создаём пользователя с дефолтными настройками
+                    user = Users(
+                        user_id=tg_user.id,
+                        username=tg_user.username,
+                        first_name=tg_user.first_name,
+                        last_name=tg_user.last_name,
+                        news_subscribed=False,
+                        events_subscribed=False,
+                    )
                     session.add(user)
                     await session.commit()
 
-            data['user'] = user
-
+            data["user"] = user
             return await handler(event, data)

@@ -77,10 +77,10 @@ async def build_subscriptions_text(session, user_id: int) -> str:
 
 # ---------- Сообщение (через кнопку) ----------
 @notificate_router.message(F.text == "🔔 Подписки")
-async def show_subscriptions(message: types.Message, session: AsyncSession):
-    user = await orm_get_user(session, message.from_user.id)
-    text = await build_subscriptions_text(session, message.from_user.id)
+async def show_subscriptions(message: types.Message, session: AsyncSession, user: Users):
+    text = await build_subscriptions_text(session, user.user_id)
     await message.answer(text, reply_markup=get_subscriptions_kb(user))
+
 
 
 @notificate_router.callback_query(F.data == 'notifications_')

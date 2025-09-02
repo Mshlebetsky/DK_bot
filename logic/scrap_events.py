@@ -19,20 +19,28 @@ def find_age_limits(text: str) -> int:
 def update_all_events():
     url = "https://xn----8sbknn9c9d.xn--p1ai/afisha/"
 
-    options = Options()
-    options.add_argument("--headless=new")
+    # options = Options()
+    # options.add_argument("--headless=new")
+    # options.add_argument("--no-sandbox")
+    # options.add_argument("--disable-dev-shm-usage")
+    # options.add_argument("--disable-gpu")
+    # options.add_argument("--window-size=1920,1080")
+    # options.add_argument(
+    #     "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    #     "AppleWebKit/537.36 (KHTML, like Gecko) "
+    #     "Chrome/120.0.0.0 Safari/537.36"
+    # )
+    start_time = time.time()
+    # driver = webdriver.Chrome(options=options)
+    options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
-    options.add_argument("--window-size=1920,1080")
-    options.add_argument(
-        "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
-    start_time = time.time()
-    # driver = webdriver.Chrome(options=options)
-    driver = uc.Chrome(headless=True)
+    options.add_argument("--disable-software-rasterizer")
+    options.add_argument("--headless=new")
+
+    driver = uc.Chrome(options=options)
+    # driver = uc.Chrome(headless=True)
     driver.get(url)
     time.sleep(4)
     error_text = ''

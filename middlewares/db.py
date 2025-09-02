@@ -1,15 +1,16 @@
 from typing import Any, Awaitable, Callable, Dict
 
 from aiogram import BaseMiddleware
-from aiogram.types import Message, TelegramObject
+from aiogram.types import TelegramObject
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from models import User   # ⚠️ Подключи свою модель User
 
 
 class DataBaseSession(BaseMiddleware):
     def __init__(self, session_pool: async_sessionmaker):
         self.session_pool = session_pool
-
 
     async def __call__(
         self,
@@ -18,5 +19,20 @@ class DataBaseSession(BaseMiddleware):
         data: Dict[str, Any],
     ) -> Any:
         async with self.session_pool() as session:
-            data['session'] = session
+            data["session"] = session
+
+            # --- Получаем ID пользователя (если это апдейт от юзера) ---
+            user_id = getattr(getattr(event, "from_user", None), "id", None)
+
+            if user_id:
+                user = await session.get(User, user_id)
+                if user is None:
+                    # Создаём нового пользователя
+                    user = User(id=user_id)
+                    session.add(user)
+                    await session.commit()
+                    await session.refresh(user)
+
+                data["user"] = user
+
             return await handler(event, data)

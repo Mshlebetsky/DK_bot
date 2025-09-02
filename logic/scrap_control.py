@@ -2,7 +2,6 @@ import asyncio
 import logging
 from datetime import datetime
 
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from database import orm_query
 from database.orm_query import (
@@ -10,7 +9,6 @@ from database.orm_query import (
     orm_update_news, orm_add_news,
     orm_update_studio, orm_add_studio, orm_get_studio_by_name
 )
-from database.models import Events, News, Studios
 from database.engine import Session
 from logic.scrap_events import update_all_events
 from logic.scrap_news import update_all_news

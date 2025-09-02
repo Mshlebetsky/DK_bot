@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from datetime import datetime
 import re
+import undetected_chromedriver as uc
 
 
 def find_age_limits(text: str) -> int:
@@ -30,7 +31,8 @@ def update_all_events():
         "Chrome/120.0.0.0 Safari/537.36"
     )
     start_time = time.time()
-    driver = webdriver.Chrome(options=options)
+    # driver = webdriver.Chrome(options=options)
+    driver = uc.Chrome(headless=True)
     driver.get(url)
     time.sleep(4)
     error_text = ''

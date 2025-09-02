@@ -1,6 +1,7 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import time
+import undetected_chromedriver as uc
 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -21,7 +22,9 @@ def update_all_news():
     )
     start_time = time.time()
 
-    driver = webdriver.Chrome(options=options)
+    # driver = webdriver.Chrome(options=options)
+    driver = uc.Chrome(headless=True)
+
     driver.get(url)
     time.sleep(4)
 

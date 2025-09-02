@@ -17,13 +17,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # ==========================
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
-    python3-distutils \
+    python3-venv \
     wget \
     curl \
     unzip \
     gnupg \
     libnss3 \
-    libgconf-2-4 \
     libxi6 \
     libxcursor1 \
     libxcomposite1 \

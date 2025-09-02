@@ -1,0 +1,24 @@
+version: "3.9"
+
+services:
+  bot:
+    build: .
+    container_name: yauza_dk_bot
+    restart: unless-stopped
+    environment:
+      # секреты подтянутся из .env рядом с compose
+      - TOKEN=${TOKEN}
+      - ADMINS_LIST=${ADMINS_LIST}
+      # путь к sqlite внутри контейнера
+      - DB_LITE=sqlite+aiosqlite:///data/bot.sqlite3z
+      - TZ=Europe/Moscow
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data   # база/кеш — сохраняется между перезапусками
+      - ./logs:/app/logs   # если пишешь логи в файл
+    # опционально: healthcheck (можно добавить позже)
+    # healthcheck:
+    #   test: ["CMD", "python", "-c", "import os,asyncio; from aiogram import Bot; async def t(): b=Bot(os.environ['TOKEN']); print(asyncio.get_event_loop().run_until_complete(b.get_me())); asyncio.get_event_loop().run_until_complete(b.session.close())"]
+    #   interval: 1m
+    #   timeout: 15s
+    #   retries: 3

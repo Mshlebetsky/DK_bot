@@ -1,91 +1,61 @@
-Обновлённый Dockerfile
-# ==========================
-# Базовый образ
-# ==========================
-FROM python:3.11-slim
-
-LABEL authors="Mihail"
-
-# ==========================
-# Переменные окружения
-# ==========================
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    TZ="Europe/Moscow"
-
-# ==========================
-# Установка системных зависимостей
-# ==========================
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    tzdata \
-    python3-distutils \
-    wget \
-    curl \
-    unzip \
-    gnupg \
-    libnss3 \
-    libgconf-2-4 \
-    libxi6 \
-    libxcursor1 \
-    libxcomposite1 \
-    libasound2 \
-    libxdamage1 \
-    libxrandr2 \
-    libgbm-dev \
-    libgtk-3-0 \
-    && rm -rf /var/lib/apt/lists/*
-
-# ==========================
-# Установка Google Chrome + chromedriver
-# ==========================
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
-        > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends google-chrome-stable \
-    && rm -rf /var/lib/apt/lists/*
-
-# ==========================
-# Рабочая директория
-# ==========================
-WORKDIR /app
-
-# ==========================
-# Зависимости Python
-# ==========================
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# ==========================
-# Копируем проект
-# ==========================
-COPY . .
-
-# ==========================
-# Создание пользователя и директорий
-# ==========================
-RUN useradd -ms /bin/bash appuser \
-    && mkdir -p /app/data /app/logs \
-    && chown -R appuser:appuser /app
-
-USER appuser
-
-# ==========================
-# Значения по умолчанию
-# ==========================
-ENV DB_LITE="sqlite+aiosqlite:///data/bot.sqlite3"
-
-# ==========================
-# Запуск
-# ==========================
-CMD ["python", "app.py"]
-
-⚡️ Что изменилось
-
-Добавил установку python3-distutils, чтобы undetected-chromedriver не падал.
-
-Устанавливаем Google Chrome Stable и нужные библиотеки, чтобы Selenium/UC работали.
-
-Оставил useradd appuser и разделение папок /app/data и /app/logs.
-
-Всё лишнее чистим (rm -rf /var/lib/apt/lists/*), чтобы образ был компактнее.
+yauza_bot  | Cause exception while process update id=628588578 by bot id=8139355615
+yauza_bot  | AttributeError: 'NoneType' object has no attribute 'news_subscribed'
+yauza_bot  | Traceback (most recent call last):
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/dispatcher.py", line 309, in _process_update
+yauza_bot  |     response = await self.feed_update(bot, update, **kwargs)
+yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/dispatcher.py", line 158, in feed_update
+yauza_bot  |     response = await self.update.wrap_outer_middleware(
+yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/middlewares/error.py", line 25, in __call__
+yauza_bot  |     return await handler(event, data)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/middlewares/user_context.py", line 56, in __call__
+yauza_bot  |     return await handler(event, data)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/fsm/middleware.py", line 42, in __call__
+yauza_bot  |     return await handler(event, data)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+yauza_bot  |     return await wrapped_inner(event, kwargs)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/app/middlewares/db.py", line 49, in __call__
+yauza_bot  |     return await handler(event, data)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+yauza_bot  |     return await wrapped()
+yauza_bot  |            ^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/dispatcher.py", line 276, in _listen_update
+yauza_bot  |     return await self.propagate_event(update_type=update_type, event=event, **kwargs)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
+yauza_bot  |     return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
+yauza_bot  |     return await self._propagate_event(
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 174, in _propagate_event
+yauza_bot  |     response = await router.propagate_event(update_type=update_type, event=event, **kwargs)
+yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 146, in propagate_event
+yauza_bot  |     return await observer.wrap_outer_middleware(_wrapped, event=event, data=kwargs)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 141, in _wrapped
+yauza_bot  |     return await self._propagate_event(
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/router.py", line 166, in _propagate_event
+yauza_bot  |     response = await observer.trigger(event, **kwargs)
+yauza_bot  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/telegram.py", line 121, in trigger
+yauza_bot  |     return await wrapped_inner(event, kwargs)
+yauza_bot  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/usr/local/lib/python3.11/site-packages/aiogram/dispatcher/event/handler.py", line 43, in call
+yauza_bot  |     return await wrapped()
+yauza_bot  |            ^^^^^^^^^^^^^^^
+yauza_bot  |   File "/app/handlers/notification.py", line 90, in show_subscriptions_
+yauza_bot  |     await callback.message.edit_text(text, reply_markup=get_subscriptions_kb(user))
+yauza_bot  |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+yauza_bot  |   File "/app/handlers/notification.py", line 40, in get_subscriptions_kb
+yauza_bot  |     if user.news_subscribed:
+yauza_bot  |        ^^^^^^^^^^^^^^^^^^^^
+yauza_bot  | AttributeError: 'NoneType' object has no attribute 'news_subscribed'

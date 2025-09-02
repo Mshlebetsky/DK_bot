@@ -4,7 +4,7 @@ from aiogram import BaseMiddleware
 from aiogram.types import Message, CallbackQuery, TelegramObject
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from models import User   # ⚠️ проверь, чтобы у тебя точно был models/User
+from database.models import Users   # ⚠️ проверь, чтобы у тебя точно был models/User
 
 
 class DataBaseSession(BaseMiddleware):
@@ -32,10 +32,10 @@ class DataBaseSession(BaseMiddleware):
                 tg_username = event.from_user.username
 
             if tg_id:
-                user = await session.get(User, tg_id)
+                user = await session.get(Users, tg_id)
                 if not user:
                     # создаём нового пользователя
-                    user = User(id=tg_id, username=tg_username)
+                    user = Users(id=tg_id, username=tg_username)
                     session.add(user)
                     await session.commit()
                 else:

@@ -1,0 +1,91 @@
+Обновлённый Dockerfile
+# ==========================
+# Базовый образ
+# ==========================
+FROM python:3.11-slim
+
+LABEL authors="Mihail"
+
+# ==========================
+# Переменные окружения
+# ==========================
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TZ="Europe/Moscow"
+
+# ==========================
+# Установка системных зависимостей
+# ==========================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tzdata \
+    python3-distutils \
+    wget \
+    curl \
+    unzip \
+    gnupg \
+    libnss3 \
+    libgconf-2-4 \
+    libxi6 \
+    libxcursor1 \
+    libxcomposite1 \
+    libasound2 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm-dev \
+    libgtk-3-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ==========================
+# Установка Google Chrome + chromedriver
+# ==========================
+RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" \
+        > /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends google-chrome-stable \
+    && rm -rf /var/lib/apt/lists/*
+
+# ==========================
+# Рабочая директория
+# ==========================
+WORKDIR /app
+
+# ==========================
+# Зависимости Python
+# ==========================
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# ==========================
+# Копируем проект
+# ==========================
+COPY . .
+
+# ==========================
+# Создание пользователя и директорий
+# ==========================
+RUN useradd -ms /bin/bash appuser \
+    && mkdir -p /app/data /app/logs \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
+# ==========================
+# Значения по умолчанию
+# ==========================
+ENV DB_LITE="sqlite+aiosqlite:///data/bot.sqlite3"
+
+# ==========================
+# Запуск
+# ==========================
+CMD ["python", "app.py"]
+
+⚡️ Что изменилось
+
+Добавил установку python3-distutils, чтобы undetected-chromedriver не падал.
+
+Устанавливаем Google Chrome Stable и нужные библиотеки, чтобы Selenium/UC работали.
+
+Оставил useradd appuser и разделение папок /app/data и /app/logs.
+
+Всё лишнее чистим (rm -rf /var/lib/apt/lists/*), чтобы образ был компактнее.

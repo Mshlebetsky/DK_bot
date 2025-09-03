@@ -87,15 +87,16 @@ def setup_scheduler(bot: Bot):
     scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
     scheduler.add_job(
         send_reminders_job,
-        trigger="interval",
-        minutes=30,
+        trigger=CronTrigger(hour="9-21/1", minute=0),
+        # trigger="interval",
+        minutes=60,
         args=(bot,)
     )
     scheduler.add_job(
         scrap_everything,
         # trigger=CronTrigger(hour="9-21/2", minute=0),
         trigger="interval",
-        minutes=30,
+        minutes=60,
         args=(bot, True),  # True = уведомлять пользователей
     )
 

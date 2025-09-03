@@ -51,7 +51,7 @@ async def process_agree(callback: CallbackQuery, session: AsyncSession):
     await callback.answer("Спасибо, вы согласились ✅", show_alert=False)
     # Показываем следующее меню
     # await help_(callback)
-    await callback.message.edit_text(welcome_text, get_main_menu_kb(callback.from_user))
+    await callback.message.answer(welcome_text, get_main_menu_kb(callback.from_user))
 
 @user_private_router.message(or_f(Command('check_admin'), lambda msg: msg.text == "Проверить админа"))
 async def if_admin(message: types.Message):

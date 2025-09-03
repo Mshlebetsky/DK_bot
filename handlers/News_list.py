@@ -59,7 +59,7 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
         return
 
     description = news.description or "Нет описания"
-    short_desc = description[:350] + ("… \n\n<i>нажмите на \"подробднее\", чтобы прочитать полностью</i>" if len(description) > 350 else "")
+    short_desc = description[:350] + ("<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше и записаться</i>" if len(description) > 350 else "")
 
     # соседи для списка
     neighbors = (

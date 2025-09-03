@@ -22,6 +22,7 @@ def update_all_studios():
     start_time = time.time()
     # driver = webdriver.Chrome(options=options)
     # driver = uc.Chrome(headless=True)
+    # driver = uc.Chrome(options=options, version_main=139)
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -29,7 +30,7 @@ def update_all_studios():
     options.add_argument("--disable-software-rasterizer")
     options.add_argument("--headless=new")
 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(options=options, version_main=139)
     driver.get(url)
     time.sleep(2)
 

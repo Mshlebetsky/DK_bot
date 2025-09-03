@@ -39,7 +39,7 @@ def update_all_events():
     options.add_argument("--disable-software-rasterizer")
     options.add_argument("--headless=new")
 
-    driver = uc.Chrome(options=options)
+    driver = uc.Chrome(options=options, version_main=139)
     # driver = uc.Chrome(headless=True)
     driver.get(url)
     time.sleep(4)

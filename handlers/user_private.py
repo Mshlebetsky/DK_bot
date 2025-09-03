@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import  orm_add_user
 from handlers.menu2 import help_, get_main_menu_kb
 
-from data.text import  welcome, welcome_text
+from data.text import  welcome
 
 
 user_private_router = Router()
@@ -36,6 +36,15 @@ async def start_cmd(message: types.Message, session: AsyncSession):
         ]
     )
     await message.answer(f"{welcome}", reply_markup=policy_keyboard, parse_mode="HTML")
+
+
+welcome_text = (
+    f'Привет! На связи я, твоя «Яуза» 💝'
+    f'\nЯ-это путь. Во мне всё движение мира!'
+    f'\nЗдесь, мы вместе окунёмся в водоворот событий и глубоких чувств, чтобы открывать новое-в мире и в себе.'
+    f'Будь со мной в творческом потоке!'
+)
+
 
 @user_private_router.callback_query(F.data == "agree_policy")
 async def process_agree(callback: CallbackQuery, session: AsyncSession):

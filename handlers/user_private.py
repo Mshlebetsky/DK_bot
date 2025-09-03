@@ -5,9 +5,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 from filter.filter import ChatTypeFilter, check_message, IsSuperAdmin
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import  orm_add_user
-from handlers.menu2 import help_
+from handlers.menu2 import help_, get_main_menu_kb
 
-from data.text import  welcome
+from data.text import  welcome, welcome_text
 
 
 user_private_router = Router()
@@ -36,11 +36,13 @@ async def start_cmd(message: types.Message, session: AsyncSession):
         ]
     )
     await message.answer(f"{welcome}", reply_markup=policy_keyboard, parse_mode="HTML")
+
 @user_private_router.callback_query(F.data == "agree_policy")
 async def process_agree(callback: CallbackQuery, session: AsyncSession):
     await callback.answer("Спасибо, вы согласились ✅", show_alert=False)
     # Показываем следующее меню
-    await help_(callback)
+    # await help_(callback)
+    await callback.message.edit_text(welcome_text, get_main_menu_kb(callback.from_user))
 
 @user_private_router.message(or_f(Command('check_admin'), lambda msg: msg.text == "Проверить админа"))
 async def if_admin(message: types.Message):

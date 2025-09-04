@@ -89,7 +89,7 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
             )
             neighbor_titles.append(f"➡ <i>Следующие:</i>\n{titles}")
 
-    text = f"<b>{news.name}</b>\n\n{short_desc}\n\n" + "\n".join(neighbor_titles)
+    text = f"<b>{news.name.capitalize()}</b>\n\n{short_desc}\n\n" + "\n".join(neighbor_titles)
     kb = get_news_card_keyboard(news.id)
 
     target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback

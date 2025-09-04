@@ -83,22 +83,29 @@ dp.include_router(servises_router)
 
 
 # ================= APScheduler =================
+
 def setup_scheduler(bot: Bot):
     scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
+
+    # Оповещения — только в 9:00
     scheduler.add_job(
         send_reminders_job,
-        trigger=CronTrigger(hour="9-21/1", minute=0),
-        # trigger="interval",
-        minutes=60,
+        trigger=CronTrigger(hour=9, minute=0),
         args=(bot,)
+    )
+
+    # Обновления — в 9:00 и 19:00
+    scheduler.add_job(
+        scrap_everything,
+        trigger=CronTrigger(hour=9, minute=0),
+        args=(bot, True),  # True = уведомлять пользователей
     )
     scheduler.add_job(
         scrap_everything,
-        # trigger=CronTrigger(hour="9-21/2", minute=0),
-        trigger="interval",
-        minutes=60,
-        args=(bot, True),  # True = уведомлять пользователей
+        trigger=CronTrigger(hour=19, minute=0),
+        args=(bot, False),  # в 19:00 можно отключить уведомления
     )
+
 
 
     scheduler.start()

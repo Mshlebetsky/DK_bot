@@ -5,6 +5,7 @@ services:
     build: .
     container_name: yauza_bot
     restart: unless-stopped
+    init: true
     env_file:
       - .env
     volumes:
@@ -15,8 +16,10 @@ services:
       - botnet
     environment:
       - DB_LITE=sqlite+aiosqlite:///data/bot.sqlite3
+
 volumes:
   yauza_db:
+
 networks:
   botnet:
     driver: bridge

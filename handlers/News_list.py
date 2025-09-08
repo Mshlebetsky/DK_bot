@@ -5,6 +5,7 @@ from sqlalchemy import select, func, desc
 
 from database.models import News
 from database.orm_query import orm_get_news
+from handlers.Event_list import Big_litter_start
 
 news_router = Router()
 
@@ -30,7 +31,7 @@ def get_news_card_keyboard(news_id: int):
 def get_all_news_keyboard(news, page: int, total_pages: int):
     keyboard = [
         [InlineKeyboardButton(
-            text=new.name[:40],  # ограничим длину названия
+            text=Big_litter_start(new.name[:40]),  # ограничим длину названия
             callback_data=f"news_card:{new.id}"
         )]
         for new in news
@@ -59,7 +60,7 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
         return
 
     description = news.description or "Нет описания"
-    short_desc = description[:350] + ("<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше и записаться</i>" if len(description) > 350 else "")
+    short_desc = description[:350] + ("<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше</i>" if len(description) > 350 else "")
 
     # соседи для списка
     neighbors = (
@@ -78,18 +79,18 @@ async def render_news_card(message_or_callback, session: AsyncSession, news_id: 
             prev_news = neighbors[idx - 1]
             short_name = prev_news.name[:100] + ("…" if len(prev_news.name) > 100 else "")
             neighbor_titles.append(
-                f"⬅ <i>Предыдущая:</i> \n🗞 {short_name}"
+                f"⬅ <i>Предыдущая:</i> \n🗞 {Big_litter_start(short_name)}"
             )
 
         # следующие новости
         next_two = neighbors[idx + 1: idx + 3]
         if next_two:
             titles = "\n".join(
-                [f"🗞 {n.name[:100] + ('…' if len(n.name) > 100 else '')}" for n in next_two]
+                [f"🗞 {Big_litter_start(n.name[:100]) + ('…' if len(n.name) > 100 else '')}" for n in next_two]
             )
             neighbor_titles.append(f"➡ <i>Следующие:</i>\n{titles}")
 
-    text = f"<b>{news.name.capitalize()}</b>\n\n{short_desc}\n\n" + "\n".join(neighbor_titles)
+    text = f"<b>{Big_litter_start(news.name)}</b>\n\n{short_desc}\n\n" + "\n".join(neighbor_titles)
     kb = get_news_card_keyboard(news.id)
 
     target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback

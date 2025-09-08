@@ -243,7 +243,7 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
             })
             added += 1
             if update:
-                text = f"{str(update)}\n{name.capitalize()} | +{age_limits}\n\n{event_date}"
+                text = f"{name.capitalize()} | +{age_limits}\n\n{event_date}"
                 await notify_subscribers(bot, session, f"📰 Обновление в афише! \n\n{text}", img, type_="events")
     await callback.message.answer(
         f"{log_text}\n\n"

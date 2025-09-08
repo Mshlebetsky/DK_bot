@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 
 from database.models import Studios
 from database.orm_query import orm_get_studio
-
+from handlers.Event_list import Big_litter_start
 
 studios_router = Router()
 
@@ -16,7 +16,7 @@ STUDIOS_PER_PAGE = 8
 def get_studios_keyboard(studios, page: int, total_pages: int):
     keyboard = [
         [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {studio.name.capitalize()}",
+            text=f"{'🆓' if studio.cost == 0 else '💳'} {Big_litter_start(studio.name)}",
             callback_data=f"studio_card:{studio.id}:{page}"
         )]
         for studio in studios

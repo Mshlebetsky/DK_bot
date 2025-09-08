@@ -1,3 +1,58 @@
 TOKEN=8139355615:AAFSs09vi_SwiOw0uuFpWfb9lHlXwc5_4bM
 DB_LITE=sqlite+aiosqlite:///my_base.db
 ADMINS_LIST=435946390,2313213,1515846525,6266217488
+
+
+
+✅ Как исправить
+
+Проверь, что scrap_everything асинхронная:
+
+async def scrap_everything(bot, notify: bool):
+    ...
+
+
+И тогда регистрировать надо так:
+
+scheduler.add_job(
+    scrap_everything,
+    trigger=CronTrigger(hour=9, minute=0),
+    args=(bot, True),
+    coalesce=True,   # сливает пропущенные задачи
+    misfire_grace_time=60  # если пропустил, дает минуту на запуск
+)
+
+
+⚠️ Если scrap_everything внутри вызывает блокирующие функции (например, requests.get или парсер с os.system), их надо вынести в asyncio.to_thread() или заменить на асинхронные аналоги.
+
+Замени time.sleep(1) на асинхронный await asyncio.sleep(1):
+
+except Exception as e:
+    logger.error(f"Ошибка в polling: {e}", exc_info=True)
+    await asyncio.sleep(1)
+
+
+Если где-то используешь subprocess.Popen, исправь так:
+
+import asyncio
+
+proc = await asyncio.create_subprocess_exec(
+    "python", "parser.py",
+    stdout=asyncio.subprocess.PIPE,
+    stderr=asyncio.subprocess.PIPE
+)
+stdout, stderr = await proc.communicate()
+
+
+Тогда процесс дочистится автоматически.
+
+🔧 Доп. отладка
+
+Можешь проверить прямо сейчас, кто именно плодит зомби:
+
+ps -eo pid,ppid,stat,cmd | grep Z
+
+
+В колонке PPID будет видно, какой процесс (обычно Python) их держит. Если это твой bot.py, значит виноват APScheduler/парсер.
+
+👉 Хочешь, я перепишу кусок с scrap_everything и time.sleep, чтобы гарантированно убрать блокировки и зомби?

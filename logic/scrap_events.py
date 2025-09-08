@@ -100,5 +100,5 @@ def update_all_events():
     if error_counter > 0:
         text += f"При обновлении было пропущено {error_counter} мероприятий со следующими ошибками:\n{error_text}"
     driver.close()
-
+    driver.quit()
     return data, text

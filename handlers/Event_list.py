@@ -1,10 +1,11 @@
 from datetime import date
+from datetime import datetime
 
 from aiogram import Router, F, types
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, insert, delete
+from sqlalchemy import select, func, delete
 
 from database.models import Events, UserEventTracking
 from database.orm_query import orm_get_event
@@ -14,10 +15,19 @@ EVENTS_PER_PAGE = 8
 
 
 # ---------- Клавиатуры ----------
+def Big_litter_start(s: str):
+    if s[0] == '«':
+        return f'«{s[1:].capitalize()}'
+    elif s[0] ==  '\"':
+        return f'\"{s[1:].capitalize()}'
+    else:
+        return s.capitalize()
+
+
 def get_events_keyboard(events, page: int, total_pages: int):
     keyboard = [
         [InlineKeyboardButton(
-            text=f"🗓 {ev.date:%d.%m} | {ev.name[:30]}+ | {ev.age_limits}+",
+            text=f"🗓 {ev.date:%d.%m} | {Big_litter_start(ev.name[:30])} | {ev.age_limits}+",
             callback_data=f"event_card:{ev.id}:{page}"
         )]
         for ev in events
@@ -39,26 +49,21 @@ def get_events_keyboard(events, page: int, total_pages: int):
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 
-def get_event_card_keyboard(event_id: int, page: int):
+def get_event_card_keyboard(event: Events, page: int, is_tracking: bool = False):
     buttons = [
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
-        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"event_detail:{event_id}")]
+        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"event_detail:{event.id}")],
+        [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
     ]
-    # Если сайт не меняется, оставь как есть
-    buttons.append([InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")])
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
+    # Кнопка билетов только для будущих событий
+    if (
+        event.link and isinstance(event.link, str) and event.link.startswith("http")
+        and event.date >= datetime.now()
+    ):
+        buttons.append([InlineKeyboardButton(text="🎟 Приобрести билеты", url=event.link)])
 
-def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = False):
-    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
-               [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
-               ]
-
-    # Проверяем наличие нормальной ссылки
-    if event.link and isinstance(event.link, str) and event.link.startswith("http"):
-        buttons.append([InlineKeyboardButton(text="📝 Приобрести билеты", url=event.link)])
-
-    # 👇 Кнопки отслеживания
+    # Кнопка отслеживания
     if is_tracking:
         buttons.append([InlineKeyboardButton(text="✅ Отслеживается", callback_data=f"untrack_event:{event.id}:{page}")])
     else:
@@ -67,16 +72,33 @@ def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = Fals
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = False):
+    buttons = [
+        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
+        [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")],
+    ]
+
+    if (
+        event.link and isinstance(event.link, str) and event.link.startswith("http")
+        and event.date >= datetime.now()
+    ):
+        buttons.append([InlineKeyboardButton(text="🎟 Приобрести билеты", url=event.link)])
+
+    if is_tracking:
+        buttons.append([InlineKeyboardButton(text="✅ Отслеживается", callback_data=f"untrack_event:{event.id}:{page}")])
+    else:
+        buttons.append([InlineKeyboardButton(text="🔔 Отслеживать", callback_data=f"track_event:{event.id}:{page}")])
+
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
 # ---------- Рендеры ----------
-# ---------- Рендер списка ----------
 async def render_event_list(target: Message | CallbackQuery, session: AsyncSession, page: int = 1, edit: bool = False):
     offset = (page - 1) * EVENTS_PER_PAGE
     events = (
         await session.execute(
             select(Events)
-            .where(Events.date >= date.today())  # 👈 только будущие события
+            .where(Events.date >= date.today())
             .order_by(Events.date.asc())
             .offset(offset)
             .limit(EVENTS_PER_PAGE)
@@ -107,14 +129,13 @@ async def render_event_list(target: Message | CallbackQuery, session: AsyncSessi
     kb = get_events_keyboard(events, page, total_pages)
 
     if isinstance(target, CallbackQuery):
-        if edit:  # пагинация
+        if edit:
             try:
                 await target.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
             except Exception:
-                # бывает, если сообщение было с фото → удаляем и шлём новое
                 await target.message.delete()
                 await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
-        else:  # первый вызов
+        else:
             try:
                 await target.message.delete()
             except Exception:
@@ -125,19 +146,27 @@ async def render_event_list(target: Message | CallbackQuery, session: AsyncSessi
         await target.answer(text, reply_markup=kb, parse_mode="HTML")
 
 
-
 async def render_event_card(callback: CallbackQuery, session: AsyncSession, event_id: int, page: int):
     event = await orm_get_event(session, event_id)
     if not event:
         await callback.answer("Событие не найдено", show_alert=True)
         return
 
+    # Проверка отслеживания
+    tracking = await session.execute(
+        select(UserEventTracking).where(
+            UserEventTracking.user_id == callback.from_user.id,
+            UserEventTracking.event_id == event_id
+        )
+    )
+    is_tracking = tracking.scalars().first() is not None
+
     desc = event.description or "Нет описания"
     short_desc = desc[:350] + ("<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше и записаться</i>" if len(desc) > 350 else "")
     date_line = f"🗓 {event.date:%d.%m.%Y}\n\n" if getattr(event, "date", None) else ""
     text = f"<b>{event.name} | {event.age_limits}+ </b>\n\n{date_line}{short_desc}"
 
-    kb = get_event_card_keyboard(event.id, page)
+    kb = get_event_card_keyboard(event, page, is_tracking=is_tracking)
 
     try:
         await callback.message.delete()
@@ -151,7 +180,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
 
     await callback.answer()
 
-from datetime import time
+
 async def render_event_detail(callback: CallbackQuery, session: AsyncSession, event_id: int, page: int):
     event = await orm_get_event(session, event_id)
     if not event:
@@ -160,7 +189,7 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
 
     text = (
         f"<b>{event.name} | {event.age_limits}+</b>\n\n"
-        f"🗓 {event.date:%d.%m.%Y}\t\t{event.date.hour}:{'00' if event.date.minute == 0 else event.date.minute}\n\n"
+        f"🗓 {event.date:%d.%m.%Y}  {event.date.hour}:{event.date.minute:02d}\n\n"
         f"{event.description or 'Нет описания'}"
     )
 
@@ -179,13 +208,8 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
     except Exception:
         pass
 
-    # if event.img:
-    #     await callback.message.answer_photo(event.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
-    # else:
-    #     await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
     await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
     await callback.answer()
-
 
 
 # ---------- Хендлеры ----------
@@ -214,15 +238,14 @@ async def event_card_handler(callback: CallbackQuery, session: AsyncSession):
 @event_router.callback_query(F.data.startswith("event_detail:"))
 async def event_detail_handler(callback: CallbackQuery, session: AsyncSession):
     _, event_id = callback.data.split(":")
-    # сюда передаём page=1, либо можно прокидывать динамически
     await render_event_detail(callback, session, int(event_id), page=1)
+
 
 @event_router.callback_query(F.data.startswith("track_event:"))
 async def track_event_handler(callback: CallbackQuery, session: AsyncSession):
     _, event_id, page = callback.data.split(":")
     user_id = callback.from_user.id
 
-    # Проверка, не отслеживает ли уже
     existing = await session.execute(
         select(UserEventTracking).where(
             UserEventTracking.user_id == user_id,

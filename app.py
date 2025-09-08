@@ -155,7 +155,7 @@ async def main():
             logger.error(f"Ошибка в polling: {e}", exc_info=True)
         else:
             break
-        time.sleep(1)
+        await asyncio.sleep(1)
 
 
 if __name__ == "__main__":

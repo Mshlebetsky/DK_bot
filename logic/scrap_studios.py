@@ -133,4 +133,6 @@ def update_all_studios():
     if error_counter > 0:
         text += f'\nБыло обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении'
     driver.close()
+    driver.quit()
+
     return data, text

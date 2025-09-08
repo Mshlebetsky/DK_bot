@@ -48,6 +48,7 @@ def update_all_news():
         news_list = news_table.find_elements(By.CLASS_NAME,'b-event__slide-item.news_block')
     except:
         text = 'Ошибка с нахождением блоков новостей'
+        driver.quit()
         return data, text
     for item in news_list[-1::-1]:
         driver.execute_script("arguments[0].scrollIntoView(true);", item)
@@ -89,5 +90,6 @@ def update_all_news():
     if error_counter > 0:
         text += f"При обновлении было пропущено {error_counter} новостей"
     driver.close()
+    driver.quit()
     return data, text
 #        data[title] = [img, description]

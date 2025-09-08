@@ -1,15 +1,17 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 from aiogram.filters import  Command, or_f
-from aiogram import Router, types, F
+from aiogram import Router, types, F, Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
+from wsproto.events import Message
+
 from filter.filter import ChatTypeFilter, IsAdmin, check_message, get_admins_ids
 
 from data.text import admin_welcome
 from database.models import Admin
 from filter.filter import IsSuperAdmin
-
+from logic.cmd_list import private
 
 admin_router = Router()
 admin_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
@@ -97,3 +99,10 @@ async def editor_remove_handler(message: types.Message, state: FSMContext, sessi
     except Exception as e:
         await message.answer(f"❌ Ошибка: {e}")
     await state.clear()
+
+
+
+
+@admin_manage_router.message(Command('set_menu'))
+async def set_menu(message: types.Message, bot: Bot):
+    await bot.set_my_commands(commands=private, scope=types.BotCommandScopeAllPrivateChats())

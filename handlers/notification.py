@@ -137,7 +137,7 @@ async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | N
 # ---------- Напоминания о мероприятиях ----------
 async def send_event_reminders(bot, session):
     now = datetime.now().date()
-    two_weeks = now + timedelta(days=14)
+    two_weeks = now + timedelta(days=2)
 
     # выбираем события на ближайшие 2 недели
     result = await session.execute(

@@ -17,10 +17,10 @@ from database.orm_query import (
 )
 from logic.scrap_events import update_all_events, find_age_limits
 from handlers.notification import notify_subscribers
-from filter.filter import check_message, IsAdmin, ChatTypeFilter
+from filter.filter import check_message, IsAdmin, ChatTypeFilter, IsEditor, IsSuperAdmin
 
 admin_events_router = Router()
-admin_events_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
+admin_events_router.message.filter(or_f(IsSuperAdmin(),IsEditor()))
 # --- FSM ---
 class AddEventFSM(StatesGroup):
     name = State()
@@ -49,7 +49,7 @@ def get_admin_events_kb():
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 # --- Стартовое меню ---
-@admin_events_router.message(or_f((F.text == "Редактировать Афишу"),Command('edit_events')))
+@admin_events_router.message(Command('edit_events'))
 async def admin_events_menu(message: Message):
     await message.answer("Меню управления событиями:", reply_markup=get_admin_events_kb())
 
@@ -196,7 +196,9 @@ async def delete_event_confirm(callback: CallbackQuery, session: AsyncSession):
 async def update_all_events_handler_(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     question_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="C оповещением пользователей", callback_data=f"update_all_events_True")],
-        [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_events_False")]
+        [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_events_False")],
+        [InlineKeyboardButton(text="Назад", callback_data=f"edit_events_panel")]
+
     ])
     await callback.message.answer("Оповестить пользователей?", reply_markup=question_kb)
 @admin_events_router.callback_query(F.data.startswith("update_all_events_"))

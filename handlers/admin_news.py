@@ -15,10 +15,10 @@ from database.orm_query import (
 )
 from handlers.notification import notify_subscribers
 from logic.scrap_news import update_all_news
-from filter.filter import IsAdmin, ChatTypeFilter
+from filter.filter import IsAdmin, ChatTypeFilter, IsSuperAdmin, IsEditor
 
 admin_news_router = Router()
-admin_news_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
+admin_news_router.message.filter(or_f(IsSuperAdmin(),IsEditor()))
 
 
 # --- FSM ---
@@ -47,7 +47,7 @@ def get_admin_news_kb():
 
 
 # --- Стартовое меню ---
-@admin_news_router.message(or_f((F.text == "Редактировать Новости"),Command('edit_news')))
+@admin_news_router.message(Command('edit_news'))
 async def admin_news_menu(message: Message):
     await message.answer("Меню управления новостями:", reply_markup=get_admin_news_kb())
 
@@ -159,7 +159,9 @@ async def delete_news_confirm(callback: CallbackQuery, session: AsyncSession):
 async def update_all_news_handler_(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     question_kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="C оповещением пользователей", callback_data=f"update_all_news_True")],
-        [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_news_False")]
+        [InlineKeyboardButton(text="Без оповещения пользователей", callback_data=f"update_all_news_False")],
+        [InlineKeyboardButton(text="Назад", callback_data=f"edit_news_panel")]
+
     ])
     await callback.message.answer("Оповестить пользователей?",  reply_markup=question_kb)
 @admin_news_router.callback_query(F.data.startswith("update_all_news_"))

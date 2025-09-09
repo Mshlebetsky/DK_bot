@@ -8,7 +8,7 @@ from sqlalchemy import select, delete
 from filter.filter import ChatTypeFilter, IsAdmin, IsEditor, check_user, get_user_role
 
 from data.text import admin_welcome
-from database.models import Admin
+from database.models import Admin, Users
 from filter.filter import IsSuperAdmin
 from handlers.notification import send_event_reminders, logger, notify_all_users
 from logic.cmd_list import private
@@ -65,10 +65,29 @@ async def admin_menu2(callback : CallbackQuery, bot: Bot, session: AsyncSession)
 
 @admin_router.callback_query(F.data == "manage_editors")
 async def manage_editors(callback: CallbackQuery, session: AsyncSession):
+    # Получаем всех редакторов
     editors = (await session.execute(select(Admin))).scalars().all()
+
     text = "🛠 Управление редакторами:\n\n"
+
     for ed in editors:
-        text += f"• {ed.user_id} ({ed.role})\n"
+        # Подтягиваем данные о пользователе
+        user = await session.get(Users, ed.user_id)
+
+        if user:
+            name_parts = []
+            if user.first_name:
+                name_parts.append(user.first_name)
+            if user.last_name:
+                name_parts.append(user.last_name)
+            full_name = " ".join(name_parts) if name_parts else "—"
+
+            username = f"@{user.username}" if user.username else ""
+            display = f"{full_name} {username}".strip()
+        else:
+            display = "❌ Не найден в Users"
+
+        text += f"• {ed.user_id} ({ed.role}) — {display}\n"
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="➕ Добавить редактора", callback_data="add_editor")],

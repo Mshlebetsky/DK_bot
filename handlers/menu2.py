@@ -73,7 +73,7 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
 
     elif isinstance(target, types.Message):
         kb = await get_main_menu_kb(target.from_user, session)
-        await target.answer(text, reply_markup=await kb)
+        await target.answer(text, reply_markup=kb)
 
 
 @menu2_router.message(Command("menu"))
@@ -84,12 +84,16 @@ async def menu2_(message: types.Message, session: AsyncSession):
 # ---------- Помощь ----------
 @menu2_router.callback_query(F.data == "help")
 async def help_(callback_query: CallbackQuery, session: AsyncSession):
-    await callback_query.message.edit_text(help, reply_markup=await get_main_menu_kb(callback_query.from_user, session))
-
+    try:
+        await callback_query.message.edit_text(help, reply_markup=await get_main_menu_kb(callback_query.from_user, session))
+    except:
+        pass
 @menu2_router.message(Command('help'))
-async def help_comand(message: types.Message):
-    await message.answer(help, reply_markup=await get_main_menu_kb(message.from_user))
-
+async def help_comand(message: types.Message, session: AsyncSession):
+    try:
+        await message.answer(help, reply_markup=await get_main_menu_kb(message.from_user,session))
+    except:
+        pass
 
 # ---------- Главное меню (назад) ----------
 @menu2_router.callback_query(F.data == "main_menu")
@@ -127,7 +131,7 @@ async def contact_(callback: CallbackQuery, state: FSMContext):
 
     await callback.message.edit_text(contact, reply_markup=contact_kb)
 @menu2_router.message(Command('contact'))
-async def contacts_comand(message: types.Message):
+async def contacts_comand(message: types.Message, state: FSMContext):
     contact_kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -137,8 +141,9 @@ async def contacts_comand(message: types.Message):
             [InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')]
         ]
     )
-    await message.answer_location(55.908752, 37.743256)
     await message.answer(contact, reply_markup=contact_kb)
+    location_msg = await message.answer_location(55.908752, 37.743256)
+    await state.update_data(location_msg_id=location_msg.message_id)
 
 # ---------- Услуги ----------
 @menu2_router.callback_query(F.data == "services")

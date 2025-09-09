@@ -1,6 +1,4 @@
 from datetime import datetime
-from email.policy import default
-
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Float, Text, DateTime, func, Boolean, INTEGER, BigInteger
 

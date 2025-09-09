@@ -25,7 +25,7 @@ class IsAdmin(Filter):
 
     async def __call__(self, message: types.Message, bot: Bot) -> bool:
         return str(message.from_user.id) in bot.my_admins_list
-        # return message.from_user.id in [435946390]
+
 
 try:
     admins_list = os.getenv("ADMINS_LIST").replace(' ','').split(',')
@@ -42,7 +42,7 @@ def check_user(user :types.User) -> bool:
 
 class IsSuperAdmin(Filter):
     async def __call__(self, message: types.Message, bot: Bot) -> bool:
-        return str(message.from_user.id) in bot.my_admins_list
+        return str(message.from_user.id) in get_admins_ids()
 
 
 class IsEditor(Filter):
@@ -52,3 +52,16 @@ class IsEditor(Filter):
             select(Admin).where(Admin.user_id == message.from_user.id, Admin.role == "editor")
         )
         return result.scalar_one_or_none() is not None
+
+async def get_user_role(user_id: int, session: AsyncSession) -> str:
+    if str(user_id) in get_admins_ids():
+        return "super_admin"
+
+    result = await session.execute(
+        select(Admin).where(Admin.user_id == user_id)
+    )
+    admin = result.scalar_one_or_none()
+    if admin:
+        return admin.role
+
+    return "user"

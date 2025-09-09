@@ -16,11 +16,10 @@ from database.orm_query import (
 )
 
 from logic.scrap_studios import update_all_studios
-from filter.filter import IsAdmin, ChatTypeFilter
-
+from filter.filter import IsAdmin, ChatTypeFilter, IsSuperAdmin, IsEditor
 
 admin_studios_router = Router()
-admin_studios_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
+admin_studios_router.message.filter(or_f(IsSuperAdmin(),IsEditor()))
 
 
 # --- FSM ---
@@ -59,7 +58,7 @@ def get_admin_studios_kb():
 
 
 # --- Стартовое меню ---
-@admin_studios_router.message(or_f((F.text == "Редактировать Студии"),Command('edit_studios')))
+@admin_studios_router.message(Command('edit_studios'))
 async def admin_studios_menu(message: Message):
     await message.answer("Меню управления студиями:", reply_markup=get_admin_studios_kb())
 

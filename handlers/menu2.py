@@ -2,11 +2,12 @@ from aiogram import types, Router, F, Bot
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
+from requests import session
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.orm_query import orm_get_user, orm_add_user
-from filter.filter import check_user, ChatTypeFilter
+from filter.filter import check_user, ChatTypeFilter, get_user_role
 from data.text import contact, help
 from handlers.Event_list import render_event_list
 from handlers.News_list import render_all_news
@@ -15,7 +16,8 @@ from handlers.Studio_list import render_studio_list
 from handlers.notification import get_subscriptions_kb
 
 
-def get_main_menu_kb(user: types.User):
+async def get_main_menu_kb(user: types.User, session:AsyncSession):
+    role = await get_user_role(user.id, session)
     buttons = [
         [
             InlineKeyboardButton(text="📆Афиша мероприятий", callback_data="list_events"),
@@ -32,7 +34,7 @@ def get_main_menu_kb(user: types.User):
         [InlineKeyboardButton(text="Верификация участника кружков", url="http://uslugi.mosreg.ru")],
         [InlineKeyboardButton(text="💬Помощь", callback_data="help")],
     ]
-    if check_user(user):
+    if role != 'user':
         buttons.append([InlineKeyboardButton(text="🛠Панель администратора", callback_data="admin_panel")])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -61,7 +63,7 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
     )
 
     if isinstance(target, CallbackQuery):
-        kb = get_main_menu_kb(target.from_user)
+        kb = await get_main_menu_kb(target.from_user, session)
         try:
             await target.message.edit_text(text, reply_markup=kb)
         except Exception:
@@ -70,7 +72,7 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
         await target.answer()
 
     elif isinstance(target, types.Message):
-        kb = get_main_menu_kb(target.from_user)
+        kb = await get_main_menu_kb(target.from_user, session)
         await target.answer(text, reply_markup=kb)
 
 
@@ -81,13 +83,17 @@ async def menu2_(message: types.Message, session: AsyncSession):
 
 # ---------- Помощь ----------
 @menu2_router.callback_query(F.data == "help")
-async def help_(callback_query: CallbackQuery):
-    await callback_query.message.edit_text(help, reply_markup=get_main_menu_kb(callback_query.from_user))
-
+async def help_(callback_query: CallbackQuery, session: AsyncSession):
+    try:
+        await callback_query.message.edit_text(help, reply_markup=await get_main_menu_kb(callback_query.from_user, session))
+    except:
+        pass
 @menu2_router.message(Command('help'))
-async def help_comand(message: types.Message):
-    await message.answer(help, reply_markup=get_main_menu_kb(message.from_user))
-
+async def help_comand(message: types.Message, session: AsyncSession):
+    try:
+        await message.answer(help, reply_markup=await get_main_menu_kb(message.from_user,session))
+    except:
+        pass
 
 # ---------- Главное меню (назад) ----------
 @menu2_router.callback_query(F.data == "main_menu")
@@ -125,7 +131,7 @@ async def contact_(callback: CallbackQuery, state: FSMContext):
 
     await callback.message.edit_text(contact, reply_markup=contact_kb)
 @menu2_router.message(Command('contact'))
-async def contacts_comand(message: types.Message):
+async def contacts_comand(message: types.Message, state: FSMContext):
     contact_kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -135,8 +141,9 @@ async def contacts_comand(message: types.Message):
             [InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')]
         ]
     )
-    await message.answer_location(55.908752, 37.743256)
     await message.answer(contact, reply_markup=contact_kb)
+    location_msg = await message.answer_location(55.908752, 37.743256)
+    await state.update_data(location_msg_id=location_msg.message_id)
 
 # ---------- Услуги ----------
 @menu2_router.callback_query(F.data == "services")

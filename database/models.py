@@ -1,6 +1,4 @@
 from datetime import datetime
-from email.policy import default
-
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Float, Text, DateTime, func, Boolean, INTEGER, BigInteger
 
@@ -69,8 +67,6 @@ class UserEventTracking(Base):
     user_id: Mapped[int] = mapped_column(BigInteger)
     event_id: Mapped[int] = mapped_column(INTEGER)
 
-    # Когда пользователь подписался (для контроля)
-    # created_at: Mapped[datetime] = mapped_column(DateTime, default=func.now())
 
 class Admin(Base):
     __tablename__ = "admins"

@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
-from aiogram.filters import  Command
+from aiogram.filters import Command, or_f
 from aiogram import Router, types, F, Bot
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -18,12 +18,13 @@ from aiogram.fsm.context import FSMContext
 
 
 admin_router = Router()
-admin_router.message.filter(IsSuperAdmin())
+admin_router.message.filter(ChatTypeFilter(['private']),IsAdmin())
+
 
 admin_manage_router = Router()
-admin_router.message.filter(IsSuperAdmin(), IsEditor())
+admin_manage_router.message.filter(or_f(IsSuperAdmin(),IsEditor()))
 
-@admin_manage_router.message(Command('check_'))
+@admin_manage_router.message(Command('check'))
 async def check_(message: types.Message, bot: Bot, session: AsyncSession):
     if await IsSuperAdmin()(message, bot=bot):
         await message.answer("Вы супер админ")
@@ -31,15 +32,10 @@ async def check_(message: types.Message, bot: Bot, session: AsyncSession):
         await message.answer("Вы редактор")
     else:
         await message.answer("Вы обычный пользователь")
-    role = await get_user_role(message.from_user.id, bot, session)
-    await message.answer(role)
-    if role == 'super_admin':
-        await message.answer(f'super')
-    else:
-        await message.answer(f'{role}')
+
 
 async def admin_panel_menu(user: types.User, bot: Bot, new_session: AsyncSession):
-    role = await get_user_role(user.id, bot, new_session)
+    role = await get_user_role(user.id, new_session)
 
     buttons = [
         [InlineKeyboardButton(text='Редактировать Афишу', callback_data="edit_events_panel")],
@@ -48,19 +44,19 @@ async def admin_panel_menu(user: types.User, bot: Bot, new_session: AsyncSession
     ]
 
     if role == 'super_admin':
-        buttons.append([InlineKeyboardButton(text='Редактировать Penisi', callback_data="manage_editors")])
+        buttons.append([InlineKeyboardButton(text='Редактировать Администраторов', callback_data="manage_editors")])
         buttons.append([InlineKeyboardButton(text="Отправить всем!📢", callback_data='notify_all_start')])
 
     buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data='main_menu')])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
-@admin_router.message(Command('admin'))
+@admin_manage_router.message(Command('admin'))
 async def admin_panel(message: types.Message, bot: Bot, session: AsyncSession):
     await message.answer(f'{admin_welcome}', reply_markup=await admin_panel_menu(message.from_user, bot, session))
 
 
-@admin_router.callback_query(F.data == 'admin_panel')
+@admin_manage_router.callback_query(F.data == 'admin_panel')
 async def admin_menu2(callback : CallbackQuery, bot: Bot, session: AsyncSession):
     await callback.message.edit_text(admin_welcome, reply_markup=await admin_panel_menu(callback.from_user, bot, session))
 

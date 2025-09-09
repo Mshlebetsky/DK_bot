@@ -161,16 +161,24 @@ async def send_event_reminders(bot, session):
 
         # считаем разницу в днях
         days_left = (event.date.date() - now).days
-        if days_left <= 0:
+        if days_left < 0:
             continue
-
-        text = (
-            f"🔔 Напоминание!\n\n"
-            f"Через {days_left} {'день' if days_left == 1 else 'дней'} состоится мероприятие:\n\n"
-            f"<b>{event.name}</b>\n"
-            f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
-            f"{(event.description or '')[:200]}..."
-        )
+        elif days_left == 0:
+            text = (
+                f"🔔 Напоминание!\n\n"
+                f"Уже Сегодня состоится мероприятие:\n\n"
+                f"<b>{event.name}</b>\n"
+                f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
+                f"{(event.description or '')[:200]}..."
+            )
+        else:
+            text = (
+                f"🔔 Напоминание!\n\n"
+                f"Через {days_left} {'день' if days_left == 1 else 'дней'} состоится мероприятие:\n\n"
+                f"<b>{event.name}</b>\n"
+                f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
+                f"{(event.description or '')[:200]}..."
+            )
 
         # рассылаем уведомления
         for user_id in user_ids:
@@ -187,3 +195,51 @@ async def send_event_reminders(bot, session):
                 logger.info(f"Напоминание отправлено пользователю {user_id} о событии {event.id}")
             except Exception as e:
                 logger.warning(f"❌ Не удалось отправить {user_id}: {e}")
+
+
+logger = logging.getLogger("bot.broadcast")
+
+
+async def notify_all_users(bot, session, text: str, img: str | None = None):
+    """
+    Отправка уведомления всем пользователям из таблицы Users
+    """
+    # достаём всех пользователей
+    result = await session.execute(select(Users.user_id))
+    user_ids = result.scalars().all()
+
+    logger.info(f"📢 Рассылка по {len(user_ids)} пользователям")
+
+    kb_main = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🏠 Главное меню", callback_data="main_menu")]
+        ]
+    )
+
+    for user_id in user_ids:
+        try:
+            if img:
+                try:
+                    await bot.send_photo(
+                        user_id,
+                        img,
+                        caption=text[:1024],
+                        parse_mode="HTML",
+                        reply_markup=kb_main,
+                    )
+                except Exception:
+                    await bot.send_message(
+                        user_id,
+                        text[:4096],
+                        parse_mode="HTML",
+                        reply_markup=kb_main,
+                    )
+            else:
+                await bot.send_message(
+                    user_id,
+                    text[:4096],
+                    parse_mode="HTML",
+                    reply_markup=kb_main,
+                )
+        except Exception as e:
+            logger.warning(f"❌ Не удалось отправить сообщение {user_id}: {e}")

@@ -149,13 +149,22 @@ async def render_event_list(
     try:
         if isinstance(target, CallbackQuery):
             if edit:
-                await target.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+                try:
+                    if target.message.text:  # сообщение с текстом
+                        await target.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+                    elif target.message.caption:  # сообщение с фото и подписью
+                        await target.message.edit_caption(caption=text, reply_markup=kb, parse_mode="HTML")
+                    else:  # например, фото без подписи
+                        await target.message.delete()
+                        await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
+                except Exception as e:
+                    logger.error("Ошибка при обновлении сообщения: %s", e)
+                    await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
             else:
                 await target.message.delete()
                 await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
             await target.answer()
-        else:
-            await target.answer(text, reply_markup=kb, parse_mode="HTML")
+
     except Exception as e:
         logger.error("Ошибка при рендере списка событий: %s", e)
 

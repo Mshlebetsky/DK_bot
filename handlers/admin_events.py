@@ -74,7 +74,7 @@ async def show_admin_events_menu(event: types.Message | CallbackQuery) -> None:
     """Показывает меню управления событиями."""
     target = event.message if isinstance(event, CallbackQuery) else event
     await target.answer("Меню управления событиями:", reply_markup=get_admin_events_kb())
-    logger.info("Админ открыл меню управления событиями")
+    logger.info(f"Переход в меню управления афиши (user_id={event.from_user.id})")
 
 
 # ================== ДОБАВЛЕНИЕ СОБЫТИЯ ==================

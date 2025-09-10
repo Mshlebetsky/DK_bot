@@ -5,7 +5,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 from filter.filter import ChatTypeFilter, check_message, IsSuperAdmin
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import  orm_add_user
-from handlers.menu2 import help_, get_main_menu_kb
+from handlers.menu2 import get_main_menu_kb
 
 from data.text import  welcome
 

@@ -3,13 +3,13 @@ from datetime import date, datetime
 from typing import Sequence
 
 from aiogram import Router, F
-from aiogram.filters import Command
 from aiogram.types import (
     Message,
     CallbackQuery,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
 )
+from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
 
@@ -25,9 +25,7 @@ EVENTS_PER_PAGE = 8
 # ---------- Утилиты ----------
 
 def capitalize_title_safe(s: str) -> str:
-    """
-    Делает первую букву заглавной, корректно обрабатывая кавычки и ёлочки.
-    """
+    """Делает первую букву заглавной, корректно обрабатывая кавычки и ёлочки."""
     if not s:
         return s
     if s[0] in {"«", "\""} and len(s) > 1:
@@ -35,12 +33,30 @@ def capitalize_title_safe(s: str) -> str:
     return s.capitalize()
 
 
+async def safe_edit_message(message: Message, text: str, kb: InlineKeyboardMarkup | None = None) -> None:
+    """
+    Безопасное обновление сообщения:
+    - если сообщение текстовое → edit_text
+    - если сообщение фото/другое → delete + answer
+    - защита от "message is not modified"
+    """
+    try:
+        if message.content_type == "text":
+            await message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        else:
+            await message.delete()
+            await message.answer(text, reply_markup=kb, parse_mode="HTML")
+    except Exception as e:
+        if "message is not modified" in str(e):
+            logger.debug("safe_edit_message: сообщение не изменилось")
+        else:
+            logger.warning(f"safe_edit_message error: {e}")
+
+
 # ---------- Клавиатуры ----------
 
 def get_events_keyboard(events: Sequence[Events], page: int, total_pages: int) -> InlineKeyboardMarkup:
-    """
-    Формирует клавиатуру для списка событий.
-    """
+    """Формирует клавиатуру для списка событий."""
     keyboard = [
         [InlineKeyboardButton(
             text=f"🗓 {ev.date:%d.%m} | {capitalize_title_safe(ev.name[:30])} | {ev.age_limits}+",
@@ -63,9 +79,7 @@ def get_events_keyboard(events: Sequence[Events], page: int, total_pages: int) -
 
 
 def get_event_base_buttons(event: Events) -> list[list[InlineKeyboardButton]]:
-    """
-    Базовые кнопки для карточки события.
-    """
+    """Базовые кнопки для карточки события."""
     buttons = [[InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/afisha/")]]
     if (
         event.link and isinstance(event.link, str) and event.link.startswith("http")
@@ -76,9 +90,7 @@ def get_event_base_buttons(event: Events) -> list[list[InlineKeyboardButton]]:
 
 
 def get_event_card_keyboard(event: Events, page: int, is_tracking: bool = False) -> InlineKeyboardMarkup:
-    """
-    Клавиатура для карточки события.
-    """
+    """Клавиатура для карточки события."""
     buttons = [
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")],
         [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"event_detail:{event.id}")],
@@ -91,10 +103,8 @@ def get_event_card_keyboard(event: Events, page: int, is_tracking: bool = False)
 
 
 def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = False) -> InlineKeyboardMarkup:
-    """
-    Клавиатура для детального описания события.
-    """
-    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"events_page:{page}")]]
+    """Клавиатура для детального описания события."""
+    buttons = [[InlineKeyboardButton(text="🔙 Назад", callback_data=f"event_card:{event.id}:{page}")]]
     buttons.extend(get_event_base_buttons(event))
     track_text = "✅ Отслеживается" if is_tracking else "🔔 Отслеживать"
     track_action = "untrack_event" if is_tracking else "track_event"
@@ -110,9 +120,7 @@ async def render_event_list(
     page: int = 1,
     edit: bool = False
 ) -> None:
-    """
-    Рендер списка событий с пагинацией.
-    """
+    """Рендер списка событий с пагинацией."""
     logger.debug("Загрузка списка событий: page=%s", page)
 
     offset = (page - 1) * EVENTS_PER_PAGE
@@ -137,7 +145,7 @@ async def render_event_list(
         text = "❌ События не найдены"
         logger.info("События не найдены на странице %s", page)
         if isinstance(target, CallbackQuery):
-            await (target.message.edit_text(text) if edit else target.message.answer(text))
+            await safe_edit_message(target.message, text)
             await target.answer()
         else:
             await target.answer(text)
@@ -146,33 +154,19 @@ async def render_event_list(
     text = "📋 <b>Список ближайших событий:</b>\n\n"
     kb = get_events_keyboard(events, page, total_pages)
 
-    try:
-        if isinstance(target, CallbackQuery):
-            if edit:
-                try:
-                    if target.message.text:  # сообщение с текстом
-                        await target.message.edit_text(text, reply_markup=kb, parse_mode="HTML")
-                    elif target.message.caption:  # сообщение с фото и подписью
-                        await target.message.edit_caption(caption=text, reply_markup=kb, parse_mode="HTML")
-                    else:  # например, фото без подписи
-                        await target.message.delete()
-                        await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
-                except Exception as e:
-                    logger.error("Ошибка при обновлении сообщения: %s", e)
-                    await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
-            else:
-                await target.message.delete()
-                await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
-            await target.answer()
-
-    except Exception as e:
-        logger.error("Ошибка при рендере списка событий: %s", e)
+    if isinstance(target, CallbackQuery):
+        if edit:
+            await safe_edit_message(target.message, text, kb)
+        else:
+            await target.message.delete()
+            await target.message.answer(text, reply_markup=kb, parse_mode="HTML")
+        await target.answer()
+    else:
+        await target.answer(text, reply_markup=kb, parse_mode="HTML")
 
 
 async def render_event_card(callback: CallbackQuery, session: AsyncSession, event_id: int, page: int) -> None:
-    """
-    Рендер карточки события.
-    """
+    """Рендер карточки события."""
     logger.debug("Открытие карточки события: event_id=%s, page=%s", event_id, page)
 
     event = await orm_get_event(session, event_id)
@@ -191,7 +185,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
 
     desc = event.description or "Нет описания"
     short_desc = desc[:350] + (
-        "<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше и записаться</i>"
+        "<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше</i>"
         if len(desc) > 350 else ""
     )
     date_line = f"🗓 {event.date:%d.%m.%Y}\n\n" if getattr(event, "date", None) else ""
@@ -219,9 +213,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
 
 
 async def render_event_detail(callback: CallbackQuery, session: AsyncSession, event_id: int, page: int) -> None:
-    """
-    Рендер детального описания события.
-    """
+    """Рендер детального описания события."""
     logger.debug("Открытие детального описания события: event_id=%s, page=%s", event_id, page)
 
     event = await orm_get_event(session, event_id)
@@ -232,7 +224,7 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
 
     text = (
         f"<b>{event.name} | {event.age_limits}+</b>\n\n"
-        f"🗓 {event.date:%d.%m.%Y}  {event.date.hour}:{event.date.minute:02d}\n\n"
+        f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
         f"{event.description or 'Нет описания'}"
     )
 
@@ -246,18 +238,13 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
 
     kb = get_event_detail_keyboard(event, page, is_tracking=is_tracking)
 
-    try:
-        await callback.message.delete()
-    except Exception:
-        pass
-
-    await callback.message.answer(text, reply_markup=kb, parse_mode="HTML")
+    await safe_edit_message(callback.message, text, kb)
     await callback.answer()
 
 
 # ---------- Хендлеры ----------
 
-@event_router.message(Command("event_list"))
+@event_router.message(Command("events"))
 async def cmd_event_list(message: Message, session: AsyncSession) -> None:
     await render_event_list(message, session, page=1)
 

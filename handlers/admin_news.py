@@ -56,13 +56,13 @@ def get_admin_news_kb() -> InlineKeyboardMarkup:
 # --- Start Menu ---
 @admin_news_router.message(Command("edit_news"))
 async def admin_news_menu(message: Message):
-    logger.info("Admin %s opened news management menu", message.from_user.id)
+    logger.info(f"Переход в меню управления новостями{message.from_user.id}")
     await message.answer("Меню управления новостями:", reply_markup=get_admin_news_kb())
 
 
 @admin_news_router.callback_query(F.data == "edit_news_panel")
 async def admin_events_menu(callback: CallbackQuery):
-    logger.info("Admin %s returned to news management panel", callback.from_user.id)
+    logger.info(f"Переход в меню управления новостями (user_id{callback.from_user.id})")
     await callback.message.edit_text("Меню управления новостями:", reply_markup=get_admin_news_kb())
 
 

@@ -54,21 +54,32 @@ def get_subscriptions_kb(user):
 
 async def build_subscriptions_text(session, user_id: int) -> str:
     """
-    Формирует текст для вкладки подписок: подписки + отслеживаемые мероприятия
+    Формирует текст для вкладки подписок: подписки + отслеживаемые мероприятия (только будущие).
     """
     # Подписки пользователя
-    result = await session.execute(select(UserEventTracking.event_id).where(UserEventTracking.user_id == user_id))
+    result = await session.execute(
+        select(UserEventTracking.event_id).where(UserEventTracking.user_id == user_id)
+    )
     event_ids = result.scalars().all()
 
     text = "Здесь вы можете управлять подписками.\n\n"
 
     if event_ids:
-        events = await session.execute(select(Events).where(Events.id.in_(event_ids)))
+        now = datetime.now()
+        events = await session.execute(
+            select(Events).where(
+                Events.id.in_(event_ids),
+                Events.date >= now  # показываем только актуальные
+            )
+        )
         events = events.scalars().all()
 
-        text += "📌 Вы отслеживаете следующие мероприятия:\n"
-        for ev in events:
-            text += f" • <b>{ev.name}</b> — {ev.date:%d.%m.%Y}\n"
+        if events:
+            text += "📌 Вы отслеживаете следующие мероприятия:\n"
+            for ev in events:
+                text += f" • <b>{ev.name}</b> — {ev.date:%d.%m.%Y %H:%M}\n"
+        else:
+            text += "📌 У вас нет актуальных отслеживаемых мероприятий.\n"
     else:
         text += "📌 Вы пока не отслеживаете мероприятия.\n"
 

@@ -115,4 +115,10 @@ async def close_item_card(callback: types.CallbackQuery):
     await callback.answer()
 
 
-
+def Big_litter_start(s: str):
+    if s[0] == '«':
+        return f'«{s[1:].capitalize()}'
+    elif s[0] ==  '\"':
+        return f'\"{s[1:].capitalize()}'
+    else:
+        return s.capitalize()

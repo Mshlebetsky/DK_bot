@@ -9,9 +9,15 @@ from database.models import Studios
 from database.orm_query import orm_get_studio
 from logic.helper import Big_litter_start
 
-logger = logging.getLogger('bot.handlers.studios_list')
+# ================== ЛОГИРОВАНИЕ ==================
+
+logger = logging.getLogger(__name__)
+
+# ================== РОУТЕР ==================
+
 
 studios_router = Router()
+
 
 STUDIOS_PER_PAGE = 8
 
@@ -66,7 +72,6 @@ async def render_studio_list(message_or_callback, session: AsyncSession, page: i
     """
     Отображение списка студий.
     """
-    logger.info("Показ списка студий. Страница: %s", page)
 
     offset = (page - 1) * STUDIOS_PER_PAGE
     studios = (
@@ -109,7 +114,7 @@ async def render_studio_card(callback: CallbackQuery, studio: Studios, page: int
     """
     Краткая карточка студии.
     """
-    logger.info("Открытие краткой карточки студии. ID=%s, Страница=%s", studio.id, page)
+    logger.info(f"Пользователь {callback.from_user.id} просматривает студию {studio.id}")
 
     description = studio.description or "Нет описания"
     short_desc = description[:350] + (
@@ -147,7 +152,7 @@ async def render_studio_detail(callback: CallbackQuery, studio: Studios, page: i
     """
     Полная карточка студии.
     """
-    logger.info("Открытие детальной карточки студии. ID=%s, Страница=%s", studio.id, page)
+    logger.debug("Открытие детальной карточки студии. ID=%s, Страница=%s", studio.id, page)
 
     text = (
         f"<b>{studio.name}</b>\n\n"

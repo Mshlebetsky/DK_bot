@@ -8,14 +8,18 @@ from database.models import News
 from database.orm_query import orm_get_news
 from logic.helper import Big_litter_start
 
-# --- Router ---
+# ================== ЛОГИРОВАНИЕ ==================
+
+logger = logging.getLogger(__name__)
+
+# ================== РОУТЕР ==================
+
 news_router = Router()
 
 # --- Config ---
 NEWS_PER_PAGE = 8
 
-# --- Logger ---
-logger = logging.getLogger('bot.handlers.news_list')
+
 
 
 # ---------- Клавиатуры ----------
@@ -198,6 +202,8 @@ async def render_all_news(target: Message | CallbackQuery, session: AsyncSession
 @news_router.callback_query(F.data == "list_news")
 async def list_news_handler(callback: CallbackQuery, session: AsyncSession):
     """Показать последнюю новость"""
+    logger.info(f"Пользователь {callback.from_user.id} просматривает новости")
+
     try:
         last_news = (
             await session.execute(

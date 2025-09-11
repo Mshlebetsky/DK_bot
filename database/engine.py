@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from database.models import Base
 
 # ================= ЛОГИРОВАНИЕ =================
-logger = logging.getLogger("bot.database")
+
+logger = logging.getLogger(__name__)
 
 # ================= ДВИЖОК =================
 DB_URL = os.getenv("DB_LITE")

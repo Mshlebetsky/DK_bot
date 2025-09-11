@@ -1,14 +1,15 @@
 import os
 import asyncio
 import logging
+from dotenv import load_dotenv
 
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from dotenv import load_dotenv
 
+from logging_config import setup_logging
 from handlers.notification import send_event_reminders
 from database.engine import Session, create_db, drop_db
 from logic.scrap_control import scrap_everything
@@ -30,27 +31,8 @@ from handlers.Serviсes import services_router
 from handlers.menu2 import menu2_router
 
 # ================= ЛОГИРОВАНИЕ =================
-logger = logging.getLogger("bot")
-logger.setLevel(logging.DEBUG)
-
-# Консоль (INFO и выше)
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_format = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
-console_handler.setFormatter(console_format)
-
-# Файл (DEBUG и выше)
-file_handler = logging.FileHandler("bot.log", encoding="utf-8")
-file_handler.setLevel(logging.WARNING)
-file_format = logging.Formatter(
-    "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d | %(message)s"
-)
-file_handler.setFormatter(file_format)
-
-# Подключаем хендлеры логирования
-logger.addHandler(console_handler)
-logger.addHandler(file_handler)
-
+setup_logging()
+logger = logging.getLogger(__name__)
 
 # ================= ИНИЦИАЛИЗАЦИЯ БОТА =================
 load_dotenv()
@@ -71,7 +53,6 @@ bot.my_admins_list = get_admins_ids()
 
 # Диспетчер
 dp = Dispatcher()
-
 
 # ================= РОУТЕРЫ =================
 def setup_routers(dp: Dispatcher) -> None:
@@ -100,14 +81,12 @@ def setup_scheduler(bot: Bot) -> None:
     """Настройка планировщика задач."""
     scheduler = AsyncIOScheduler(timezone="Europe/Moscow")
 
-    # Оповещения — только в 9:00
     scheduler.add_job(
         send_reminders_job,
         trigger=CronTrigger(hour=9, minute=0),
         args=(bot,),
     )
 
-    # Обновления — в 9:00 и 17:00
     scheduler.add_job(
         scrap_everything,
         trigger=CronTrigger(hour=9, minute=0),
@@ -154,23 +133,16 @@ async def main():
     """Главная точка входа."""
     while True:
         try:
-            # Регистрируем события старта и остановки
             dp.startup.register(on_startup)
             dp.shutdown.register(on_shutdown)
 
-            # Middleware для БД
             dp.update.middleware(DataBaseSession(session_pool=Session))
 
-            # Удаляем webhook (на случай перезапуска)
             await bot.delete_webhook(drop_pending_updates=True)
 
-            # Подключаем роутеры
             setup_routers(dp)
-
-            # Настройка планировщика
             setup_scheduler(bot)
 
-            # Запуск polling
             logger.info("▶️ Запуск long polling")
             await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
         except Exception as e:

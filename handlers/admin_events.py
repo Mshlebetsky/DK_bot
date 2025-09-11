@@ -27,8 +27,8 @@ from filter.filter import IsEditor, IsSuperAdmin
 
 
 # ================== ЛОГИРОВАНИЕ ==================
-logger = logging.getLogger("bot.admin.events")
 
+logger = logging.getLogger(__name__)
 
 # ================== РОУТЕР ==================
 admin_events_router = Router()

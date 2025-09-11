@@ -17,10 +17,15 @@ from database.orm_query import (
 from logic.scrap_studios import update_all_studios
 from filter.filter import IsSuperAdmin, IsEditor
 
-# --- Router & Logger ---
+# ================== ЛОГИРОВАНИЕ ==================
+
+logger = logging.getLogger(__name__)
+
+# ================== РОУТЕР ==================
+
+
 admin_studios_router = Router()
 admin_studios_router.message.filter(or_f(IsSuperAdmin(), IsEditor()))
-logger = logging.getLogger("bot.handlers.admin_studios")
 
 
 # --- FSM States ---

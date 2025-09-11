@@ -19,7 +19,12 @@ from logic.scrap_news import update_all_news
 from filter.filter import IsSuperAdmin, IsEditor
 
 
-logger = logging.getLogger("bot.handlers.admin_news")
+# ================== ЛОГИРОВАНИЕ ==================
+
+logger = logging.getLogger(__name__)
+
+# ================== РОУТЕР ==================
+
 
 admin_news_router = Router()
 admin_news_router.message.filter(or_f(IsSuperAdmin(), IsEditor()))

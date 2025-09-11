@@ -8,9 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from data.text import short_info
 from filter.filter import ChatTypeFilter
 
+# ================== ЛОГИРОВАНИЕ ==================
+
 logger = logging.getLogger(__name__)
 
-# --- Router ---
+# ================== РОУТЕР ==================
+
+
 services_router = Router()
 services_router.message.filter(ChatTypeFilter(["private"]))
 

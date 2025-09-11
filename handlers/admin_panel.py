@@ -13,9 +13,14 @@ from database.models import Admin, Users
 from handlers.notification import send_event_reminders, notify_all_users
 from logic.cmd_list import private
 
-logger = logging.getLogger('bot.admin.panel')
 
-# --- Routers ---
+# ================== ЛОГИРОВАНИЕ ==================
+
+logger = logging.getLogger(__name__)
+
+# ================== РОУТЕРЫ ==================
+
+
 admin_router = Router()
 admin_router.message.filter(ChatTypeFilter(["private"]), IsAdmin())
 
@@ -44,7 +49,6 @@ async def check_(message: types.Message, bot: Bot, session: AsyncSession):
 # --- Admin panel menu ---
 async def admin_panel_menu(user: types.User, bot: Bot, session: AsyncSession) -> InlineKeyboardMarkup:
     role = await get_user_role(user.id, session)
-    logger.debug(f"Формирование меню для {user.id} с ролью {role}")
 
     buttons = [
         [InlineKeyboardButton(text="Редактировать Афишу", callback_data="edit_events_panel")],
@@ -68,7 +72,7 @@ async def admin_panel(message: types.Message, bot: Bot, session: AsyncSession):
 
 @admin_manage_router.callback_query(F.data == "admin_panel")
 async def admin_menu_callback(callback: CallbackQuery, bot: Bot, session: AsyncSession):
-    logger.debug(f"User {callback.from_user.id} вернулся в админ-панель")
+    logger.info(f"User {callback.from_user.id} вернулся в админ-панель")
     await callback.message.edit_text(admin_welcome, reply_markup=await admin_panel_menu(callback.from_user, bot, session))
 
 
@@ -125,7 +129,7 @@ async def editor_add_handler(message: types.Message, state: FSMContext, session:
         user_id = int(message.text)
         session.add(Admin(user_id=user_id, role="editor"))
         await session.commit()
-        logger.info(f"Добавлен новый редактор {user_id}")
+        logger.debug(f"Добавлен новый редактор {user_id}")
         await message.answer(f"✅ Пользователь {user_id} назначен редактором")
     except Exception as e:
         logger.exception(f"Ошибка при добавлении редактора {message.text}: {e}")
@@ -139,7 +143,7 @@ async def editor_remove_handler(message: types.Message, state: FSMContext, sessi
         user_id = int(message.text)
         await session.execute(delete(Admin).where(Admin.user_id == user_id))
         await session.commit()
-        logger.info(f"Редактор {user_id} удалён")
+        logger.debug(f"Редактор {user_id} удалён")
         await message.answer(f"✅ Пользователь {user_id} удален из редакторов")
     except Exception as e:
         logger.exception(f"Ошибка при удалении редактора {message.text}: {e}")

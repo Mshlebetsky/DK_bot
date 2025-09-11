@@ -16,9 +16,15 @@ from sqlalchemy import select, func, delete
 from database.models import Events, UserEventTracking
 from database.orm_query import orm_get_event
 
-logger = logging.getLogger("bot.handlers.events_list")
+# ================== ЛОГИРОВАНИЕ ==================
+
+logger = logging.getLogger(__name__)
+
+# ================== РОУТЕР ==================
 
 event_router = Router()
+
+
 EVENTS_PER_PAGE = 8
 
 
@@ -121,7 +127,7 @@ async def render_event_list(
     edit: bool = False
 ) -> None:
     """Рендер списка событий с пагинацией."""
-    logger.debug("Загрузка списка событий: page=%s", page)
+    logger.debug(f"User {target.from_user.id} открыл афишу")
 
     offset = (page - 1) * EVENTS_PER_PAGE
     events = (
@@ -167,7 +173,7 @@ async def render_event_list(
 
 async def render_event_card(callback: CallbackQuery, session: AsyncSession, event_id: int, page: int) -> None:
     """Рендер карточки события."""
-    logger.debug("Открытие карточки события: event_id=%s, page=%s", event_id, page)
+    logger.info(f"Пользователь {callback.from_user.id} просматривает событие {event_id}")
 
     event = await orm_get_event(session, event_id)
     if not event:

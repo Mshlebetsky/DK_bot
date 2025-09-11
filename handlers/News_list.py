@@ -15,7 +15,7 @@ news_router = Router()
 NEWS_PER_PAGE = 8
 
 # --- Logger ---
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('bot.handlers.news_list')
 
 
 # ---------- Клавиатуры ----------

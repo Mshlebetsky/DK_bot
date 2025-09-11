@@ -53,6 +53,7 @@ async def process_agree(callback: CallbackQuery, session: AsyncSession):
     # await help_(callback)
     await callback.message.answer(welcome_text, reply_markup=await get_main_menu_kb(callback.from_user))
 
+
 @user_private_router.message(or_f(Command('check_id'), lambda msg: msg.text == "Проверить админа"))
 async def if_admin(message: types.Message):
     await message.answer(f'Ваш id:\t{message.from_user.id}')

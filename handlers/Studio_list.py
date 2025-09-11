@@ -9,7 +9,7 @@ from database.models import Studios
 from database.orm_query import orm_get_studio
 from logic.helper import Big_litter_start
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('bot.handlers.studios_list')
 
 studios_router = Router()
 

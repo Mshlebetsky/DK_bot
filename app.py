@@ -26,7 +26,7 @@ from handlers.Studio_list import studios_router
 from handlers.Event_list import event_router
 from handlers.News_list import news_router
 from handlers.notification import notificate_router
-from handlers.Serviсes import servises_router
+from handlers.Serviсes import services_router
 from handlers.menu2 import menu2_router
 
 # ================= ЛОГИРОВАНИЕ =================
@@ -41,7 +41,7 @@ console_handler.setFormatter(console_format)
 
 # Файл (DEBUG и выше)
 file_handler = logging.FileHandler("bot.log", encoding="utf-8")
-file_handler.setLevel(logging.DEBUG)
+file_handler.setLevel(logging.WARNING)
 file_format = logging.Formatter(
     "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d | %(message)s"
 )
@@ -88,7 +88,7 @@ def setup_routers(dp: Dispatcher) -> None:
         admin_studios_router,
         event_router,
         studios_router,
-        servises_router,
+        services_router,
     ]
     for router in routers:
         dp.include_router(router)

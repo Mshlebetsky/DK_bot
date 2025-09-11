@@ -219,7 +219,7 @@ async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession
         try:
             description, img = values
         except ValueError:
-            logger.warning("Invalid data format for news: %s", name)
+            logger.warning("Ошибка формата данных: %s", name)
             await callback.message.answer(f"⚠ Ошибка формата данных: {name}")
             continue
 

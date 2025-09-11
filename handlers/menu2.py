@@ -11,7 +11,7 @@ from filter.filter import check_user, ChatTypeFilter, get_user_role
 from data.text import contact, help
 from handlers.Event_list import render_event_list
 from handlers.News_list import render_all_news
-from handlers.Serviсes import get_services_kb
+from handlers.Serviсes import get_services_keyboard
 from handlers.Studio_list import render_studio_list
 from handlers.notification import get_subscriptions_kb
 
@@ -148,7 +148,7 @@ async def contacts_comand(message: types.Message, state: FSMContext):
 # ---------- Услуги ----------
 @menu2_router.callback_query(F.data == "services")
 async def services_(callback: CallbackQuery):
-    await callback.message.edit_text("Дополнительные услуги", reply_markup=get_services_kb())
+    await callback.message.edit_text("Дополнительные услуги", reply_markup=get_services_keyboard())
 
 
 #--------------Студии -----------

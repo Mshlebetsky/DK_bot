@@ -1,4 +1,5 @@
 from aiogram import Router, types, F
+from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from sqlalchemy import select
@@ -10,7 +11,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 from database.orm_query import orm_get_user, orm_update_user_subscription, orm_add_user
 
 
-logger = logging.getLogger("bot.reminders")
+logger = logging.getLogger("bot.handlers.reminders")
 
 
 notificate_router = Router()
@@ -87,7 +88,7 @@ async def build_subscriptions_text(session, user_id: int) -> str:
 
 
 # ---------- Сообщение (через кнопку) ----------
-@notificate_router.message(F.text == "🔔 Подписки")
+@notificate_router.message(Command('notifications'))
 async def show_subscriptions(message: types.Message, session: AsyncSession, user: Users):
     text = await build_subscriptions_text(session, user.user_id)
     await message.answer(text, reply_markup=get_subscriptions_kb(user))

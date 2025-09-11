@@ -234,7 +234,7 @@ async def edit_event_value(message: Message, state: FSMContext, session: AsyncSe
     await orm_update_event(session, data["id"], {field: value})
     await state.clear()
     await message.answer("✅ Событие изменено!", reply_markup=get_admin_events_kb())
-    logger.info(f"Событие id={data['id']} изменено (поле {field})")
+    logger.info(f"Событие id={data['id']} изменено (поле {field}) user_id={message.from_user.id}")
 
 
 # ================== УДАЛЕНИЕ СОБЫТИЯ ==================
@@ -252,7 +252,7 @@ async def delete_event_start(callback: CallbackQuery, session: AsyncSession) -> 
         ]
     )
     await callback.message.answer("Выберите событие:", reply_markup=kb)
-    logger.debug("Админ открыл список для удаления событий")
+    logger.debug(f"Админ открыл список для удаления событий user_id ={callback.from_user.id}")
 
 
 @admin_events_router.callback_query(F.data.startswith("delete_event_"))
@@ -260,7 +260,7 @@ async def delete_event_confirm(callback: CallbackQuery, session: AsyncSession) -
     event_id = int(callback.data.split("_")[2])
     await orm_delete_event(session, event_id)
     await callback.message.answer("🗑 Событие удалено!", reply_markup=get_admin_events_kb())
-    logger.warning(f"Событие удалено: id={event_id}")
+    logger.warning(f"Событие удалено: id={event_id} user_id{callback.from_user.id}")
 
 
 # ================== ОБНОВЛЕНИЕ ВСЕХ СОБЫТИЙ ==================

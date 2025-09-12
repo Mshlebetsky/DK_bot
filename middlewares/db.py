@@ -1,7 +1,10 @@
+import datetime
 from typing import Any, Awaitable, Callable, Dict, Optional
 
+import sqlalchemy
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject, Message, CallbackQuery, User
+from sqlalchemy import DATETIME
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.future import select
@@ -45,6 +48,8 @@ class DataBaseSession(BaseMiddleware):
                     )
                     session.add(user)
                     await session.commit()
-
+                else:
+                    user.updated = sqlalchemy.func.now()
+                    await session.commit()
             data["user"] = user
             return await handler(event, data)

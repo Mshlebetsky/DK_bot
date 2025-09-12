@@ -95,8 +95,9 @@ async def build_subscriptions_text(session, user_id: int) -> str:
 
 # ---------- Сообщение (через кнопку) ----------
 @notificate_router.message(Command('notifications'))
-async def show_subscriptions(message: types.Message, session: AsyncSession, user: Users):
-    text = await build_subscriptions_text(session, user.user_id)
+async def show_subscriptions(message: types.Message, session: AsyncSession):
+    user = await orm_get_user(session, message.from_user.id)
+    text = await build_subscriptions_text(session, message.from_user.id)
     await message.answer(text, reply_markup=get_subscriptions_kb(user))
 
 
@@ -164,7 +165,7 @@ async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | N
 # ---------- Напоминания о мероприятиях ----------
 async def send_event_reminders(bot, session):
     now = datetime.now().date()
-    two_days = now + timedelta(days=2)
+    two_days = now + timedelta(days=14)
 
     # выбираем события на ближайшие 2 недели
     result = await session.execute(
@@ -173,7 +174,7 @@ async def send_event_reminders(bot, session):
     events = result.scalars().all()
 
     if not events:
-        logger.info("Нет событий в ближайшие 2 недели")
+        logger.info("Нет событий в ближайшие 2 дня")
         return
 
     for event in events:
@@ -223,8 +224,6 @@ async def send_event_reminders(bot, session):
             except Exception as e:
                 logger.warning(f"❌ Не удалось отправить {user_id}: {e}")
 
-
-logger = logging.getLogger("bot.broadcast")
 
 
 async def notify_all_users(bot, session, text: str, img: str | None = None):

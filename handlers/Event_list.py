@@ -194,7 +194,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
         "<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше</i>"
         if len(desc) > 350 else ""
     )
-    date_line = f"🗓 {event.date:%d.%m.%Y}\n\n" if getattr(event, "date", None) else ""
+    date_line = f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n" if getattr(event, "date", None) else ""
     text = f"<b>{event.name} | {event.age_limits}+ </b>\n\n{date_line}{short_desc}"
 
     kb = get_event_card_keyboard(event, page, is_tracking=is_tracking)

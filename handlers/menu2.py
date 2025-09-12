@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database.orm_query import orm_get_user, orm_add_user
+from database.orm_query import orm_get_user, orm_add_user, orm_last_seen_time_user
 from filter.filter import ChatTypeFilter, get_user_role
 from data.text import contact, help
 from handlers.Event_list import render_event_list
@@ -59,15 +59,23 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
     else:
         logger.warning("Попытка рендера главного меню для неизвестного объекта: %s", type(target))
         return
-
-    # Добавляем пользователя в БД
-    await orm_add_user(
-        session,
-        user_id=user.id,
-        username=user.username,
-        first_name=user.first_name,
-        last_name=user.last_name
-    )
+    try:
+        # Добавляем пользователя в БД
+        await orm_add_user(
+            session,
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            last_name=user.last_name
+        )
+    except Exception as e:
+        logger.warning(f"Не удалось добавить пользователя при рендере главного меню {e}")
+        pass
+    try:
+        await orm_last_seen_time_user(session, user.id)
+    except Exception as e:
+        logger.warning(f"Не удалось обновить время последнего визита пользователя {e}")
+        pass
     logger.info("Пользователь %s (%s) вошел в главное меню", user.id, user.username)
 
     kb = await get_main_menu_kb(user, session)

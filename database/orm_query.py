@@ -1,6 +1,9 @@
 
 from typing import Optional, Sequence
-from sqlalchemy import select, update, delete
+
+import sqlalchemy
+from requests import session
+from sqlalchemy import select, update, delete, DATETIME
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.models import News, Events, Studios, Users
@@ -134,12 +137,19 @@ async def orm_get_studio_by_name(session: AsyncSession, name: str):
 # -------------------USERS---------------------------
 
 # Получение юзера
+async def orm_last_seen_time_user(session: AsyncSession, user_id: int):
+    user = await session.get(Users, user_id)
+    user.updated = sqlalchemy.func.now()
+    await session.commit()
+
 async def orm_get_user(session: AsyncSession, user_id: int):
     return await session.get(Users, user_id)
+
 
 # Обновление подписки
 async def orm_update_user_subscription(session: AsyncSession, user_id: int, news: bool = None, events: bool = None):
     user = await session.get(Users, user_id)
+    user.updated = sqlalchemy.func.now()
     if not user:
         return
     if news is not None:
@@ -172,6 +182,3 @@ async def orm_add_user(session: AsyncSession, user_id: int, username: str = None
         session.add(user)
         await session.commit()
     return user
-
-async def orm_get_user(session: AsyncSession, user_id: int):
-    return await session.get(Users, user_id)

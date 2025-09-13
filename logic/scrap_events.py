@@ -19,19 +19,8 @@ def find_age_limits(text: str) -> int:
 def update_all_events():
     url = "https://xn----8sbknn9c9d.xn--p1ai/afisha/"
 
-    # options = Options()
-    # options.add_argument("--headless=new")
-    # options.add_argument("--no-sandbox")
-    # options.add_argument("--disable-dev-shm-usage")
-    # options.add_argument("--disable-gpu")
-    # options.add_argument("--window-size=1920,1080")
-    # options.add_argument(
-    #     "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    #     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    #     "Chrome/120.0.0.0 Safari/537.36"
-    # )
+
     start_time = time.time()
-    # driver = webdriver.Chrome(options=options)
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -53,11 +42,14 @@ def update_all_events():
         By.CLASS_NAME, 'b-event__slide-item')
     driver.execute_script("arguments[0].scrollIntoView(true);", items[0])
     time.sleep(2)
-
     for item in items:
         driver.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
         driver.execute_script("arguments[0].scrollIntoView(true);", item)
         time.sleep(1)
+        try:
+            is_free = (item.find_element(By.CLASS_NAME, 'text-is-payable').text.lower() == 'бесплатно')
+        except:
+            is_free = False
         try:
             item.find_elements(By.TAG_NAME, 'a')[0].click()
         except Exception as e:
@@ -75,8 +67,11 @@ def update_all_events():
             age_limit = find_age_limits(description)
             event_time = main_info.find_element(By.CLASS_NAME, 'modal_more_time').find_element(By.TAG_NAME, 'span').text
             img = main_info.find_element(By.CLASS_NAME, 'modal_more_image').find_element(By.TAG_NAME,
-                                                                                         'img').get_attribute('src')
-            link = main_info.find_element(By.CLASS_NAME, 'button-link.abiframelnk').get_attribute('href')
+                                                                                'img').get_attribute('src')
+            try:
+                link = main_info.find_element(By.CLASS_NAME, 'button-link.abiframelnk').get_attribute('href')
+            except:
+                link = ''
 
             month = {
                 "ЯНВ": 1, "ФЕВ": 2, "МАР": 3, "АПР": 4,
@@ -88,7 +83,7 @@ def update_all_events():
             date = datetime(int(year), int(month[mon.upper()]), int(day), int(hour), int(minutes))
             date_str = f'{str(year)}-{str(month[mon.upper()])}-{str(day)} {str(hour)}:{str(minutes)}'
             # information = [date, description, img, link]
-            information = [date_str, description,age_limit, img, link]
+            information = [date_str, description,age_limit, img, link, is_free]
             data[name] = information
 
         except Exception as e:

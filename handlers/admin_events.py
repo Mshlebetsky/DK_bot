@@ -11,6 +11,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import or_f, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+from pyexpat.errors import messages
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import orm_query
@@ -39,6 +40,7 @@ admin_events_router.message.filter(or_f(IsSuperAdmin(), IsEditor()))
 class AddEventFSM(StatesGroup):
     """Состояния для добавления события."""
     name = State()
+    is_free = State()
     date = State()
     description = State()
     link = State()
@@ -88,12 +90,21 @@ async def add_event_start(callback: CallbackQuery, state: FSMContext) -> None:
 @admin_events_router.message(AddEventFSM.name)
 async def add_event_name(message: Message, state: FSMContext) -> None:
     await state.update_data(name=message.text)
+    await state.set_state(AddEventFSM.is_free)
+    await message.answer("Мероприятие бесплатное? (Да/нет")
+    logger.debug(f"Указано название события: {message.text}")
+
+
+@admin_events_router.message(AddEventFSM.is_free)
+async def add_event_is_free(message: Message, state: FSMContext) -> None:
+    is_free = message.text.lower() in ["yes", "да", "1"]
+    await state.update_data(is_free=is_free)
     await state.set_state(AddEventFSM.date)
     await message.answer(
         "Введите дату события (ГГГГ-ММ-ДД ЧЧ:ММ)\n"
         "Или '-' для выхода."
     )
-    logger.debug(f"Указано название события: {message.text}")
+    logger.debug("Указано, бесплатное ли мероприятие")
 
 
 @admin_events_router.message(AddEventFSM.date)
@@ -118,7 +129,7 @@ async def add_event_description(message: Message, state: FSMContext) -> None:
     age_limit = find_age_limits(message.text)
     await state.update_data(description=message.text, age_limits=age_limit)
     await state.set_state(AddEventFSM.link)
-    await message.answer("Введите ссылку на событие (или '-' если нет):")
+    await message.answer("Введите ссылку на покупку билетов (или '-' если нет или событие бесплатное):")
     logger.debug("Добавлено описание события")
 
 
@@ -199,6 +210,7 @@ async def edit_event_choose(callback: CallbackQuery, state: FSMContext) -> None:
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="Название", callback_data="field_name")],
+            [InlineKeyboardButton(text="Мероприятие бесплатное? (да/нет)", callback_data="field_is_free")],
             [InlineKeyboardButton(text="Дата", callback_data="field_date")],
             [InlineKeyboardButton(text="Описание", callback_data="field_description")],
             [InlineKeyboardButton(text="Ссылка", callback_data="field_link")],
@@ -230,6 +242,8 @@ async def edit_event_value(message: Message, state: FSMContext, session: AsyncSe
         except ValueError:
             await message.answer("❌ Формат даты: 2025-08-21 18:30")
             return
+    if field == "is_free":
+        value = value.lower() in ["да", "yes", 1]
 
     await orm_update_event(session, data["id"], {field: value})
     await state.clear()
@@ -296,7 +310,7 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
 
     for name, values in data.items():
         try:
-            event_date, description, age_limits, img, link = values
+            event_date, description, age_limits, img, link, is_free = values
         except ValueError:
             await callback.message.answer(f"⚠ Ошибка формата данных: {name}")
             logger.error(f"Некорректные данные события: {name}")
@@ -310,6 +324,7 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
                 "age_limits": age_limits,
                 "img": img,
                 "link": link,
+                "is_free": is_free
             })
             updated += 1
         else:
@@ -320,6 +335,7 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
                 "age_limits": age_limits,
                 "img": img,
                 "link": link,
+                "is_free": is_free
             })
             added += 1
 

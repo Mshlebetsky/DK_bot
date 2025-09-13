@@ -55,7 +55,7 @@ class Events(Base):
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     age_limits: Mapped[int] = mapped_column(Integer, nullable=False)
-    link: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    link: Mapped[str | None] = mapped_column(Text, nullable=True, default='')
     is_free: Mapped[bool] = mapped_column(Boolean, default=False)
     img: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     is_shown: Mapped[bool] = mapped_column(Boolean, default=True)

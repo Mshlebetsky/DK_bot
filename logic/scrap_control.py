@@ -29,7 +29,7 @@ async def update_events(session, notify_users=False, bot=None):
 
     for name, values in data.items():
         try:
-            event_date, description, age_limits, img, link = values
+            event_date, description, age_limits, img, link, is_free = values
         except ValueError:
             logger.warning("⚠ Ошибка формата события: %s", name)
             continue
@@ -41,7 +41,8 @@ async def update_events(session, notify_users=False, bot=None):
                 "description": description,
                 "age_limits": age_limits,
                 "img": img,
-                "link": link
+                "link": link,
+                "is_free": is_free
             })
             updated += 1
         else:
@@ -51,7 +52,8 @@ async def update_events(session, notify_users=False, bot=None):
                 "description": description,
                 "age_limits": age_limits,
                 "img": img,
-                "link": link
+                "link": link,
+                "is_free": is_free
             })
             added += 1
             new_items.append((name, img, event_date, age_limits))

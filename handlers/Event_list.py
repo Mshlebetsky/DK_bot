@@ -12,6 +12,7 @@ from aiogram.types import (
 from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, delete
+from unicodedata import category
 
 from database.models import Events, UserEventTracking
 from database.orm_query import orm_get_event
@@ -29,6 +30,7 @@ EVENTS_PER_PAGE = 8
 
 
 # ---------- Утилиты ----------
+
 
 def capitalize_title_safe(s: str) -> str:
     """Делает первую букву заглавной, корректно обрабатывая кавычки и ёлочки."""
@@ -60,6 +62,14 @@ async def safe_edit_message(message: Message, text: str, kb: InlineKeyboardMarku
 
 
 # ---------- Клавиатуры ----------
+
+
+def get_category_menu():
+    category_kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Бесплатные", callback_data='free_events')],
+        [InlineKeyboardButton(text="Платные", callback_data="list_events")]
+    ])
+    return category_kb
 
 def get_events_keyboard(events: Sequence[Events], page: int, total_pages: int) -> InlineKeyboardMarkup:
     """Формирует клавиатуру для списка событий."""
@@ -119,6 +129,14 @@ def get_event_detail_keyboard(event: Events, page: int, is_tracking: bool = Fals
 
 
 # ---------- Рендеры ----------
+
+
+async def render_category_menu(target: Message | CallbackQuery):
+    try:
+        await target.message.edit_text('Выберите тип мероприятий:', reply_markup=get_category_menu())
+    except:
+        await target.answer('Выберите тип мероприятий:', reply_markup=get_category_menu())
+
 
 async def render_event_list(
     target: Message | CallbackQuery,
@@ -251,8 +269,16 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
 # ---------- Хендлеры ----------
 
 @event_router.message(Command("events"))
-async def cmd_event_list(message: Message, session: AsyncSession) -> None:
-    await render_event_list(message, session, page=1)
+# async def events_comand(message: Message, session: AsyncSession) -> None:
+async def events_comand(message: Message) -> None:
+    logger.info("Пользователь %s вызвал команду /events", message.from_user.id)
+    # await render_event_list(message, session, page=1)
+    await render_category_menu(message)
+
+
+@event_router.callback_query(F.data == "events")
+async def list_events_handler(callback: CallbackQuery, session: AsyncSession) -> None:
+    await render_category_menu(callback)
 
 
 @event_router.callback_query(F.data == "list_events")

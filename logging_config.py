@@ -27,7 +27,7 @@ def setup_logging(log_file: str = "logs/bot.log") -> None:
 
     # Хендлер для консоли (можно оставить INFO или DEBUG)
     console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(logging.DEBUG)
     console_handler.setFormatter(logging.Formatter(
         "%(asctime)s [%(levelname)s] [%(name)s] %(message)s"
     ))

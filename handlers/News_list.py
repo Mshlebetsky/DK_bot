@@ -112,8 +112,13 @@ async def render_news_card(target: Message | CallbackQuery, session: AsyncSessio
         msg_target = target.message if isinstance(target, CallbackQuery) else target
         try:
             if news.img:
-                await msg_target.delete()
-                await msg_target.answer_photo(news.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
+                # await msg_target.delete()
+                try:
+                    await msg_target.edit_media(news.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
+                    logger.info(f"Просмотр карточки с новостью пользователя с картинкой[edit_media]{target.from_user.id}")
+                except:
+                    await msg_target.answer_photo(news.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
+                    logger.info(f"Просмотр карточки с новостью пользователя с картинкой[answer_photo]{target.from_user.id}")
             else:
                 if getattr(msg_target, "text", None):
                     await msg_target.edit_text(text[:4095], reply_markup=kb, parse_mode="HTML")

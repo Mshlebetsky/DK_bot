@@ -1,7 +1,9 @@
+import hashlib
 import logging
-from aiogram import Router, F
-from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+
+from aiogram import Router, F, types, Bot
+from aiogram.filters import Command
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -9,119 +11,130 @@ from database.models import Studios
 from database.orm_query import orm_get_studio
 from logic.helper import Big_litter_start
 
-# ================== ЛОГИРОВАНИЕ ==================
 
 logger = logging.getLogger(__name__)
-
-# ================== РОУТЕР ==================
-
-
 studios_router = Router()
 
 
 STUDIOS_PER_PAGE = 8
+CATEGORY_MAP: dict[str, str] = {}
 
 
-# ---------- Клавиатуры ----------
-def get_studios_keyboard(studios, page: int, total_pages: int) -> InlineKeyboardMarkup:
+# ---------- Вспомогательные функции ----------
+
+
+def short_code(text: str) -> str:
+    return hashlib.md5(text.encode()).hexdigest()[:6]
+
+
+# --------- Рендеры списка/краткой и подробной карточек студий
+
+
+async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
+                              is_free: bool, category: str | None, page: int = 1):
     """
-    Генерация клавиатуры списка студий.
+    Отображение списка студий с учётом фильтра "бесплатные / платные".
     """
-    keyboard = [
-        [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {Big_litter_start(studio.name)}",
-            callback_data=f"studio_card:{studio.id}:{page}"
-        )]
-        for studio in studios
-    ]
-
-    nav_buttons = []
-    if page > 1:
-        nav_buttons.append(InlineKeyboardButton(text="⏮ Назад", callback_data=f"studios_page:{page - 1}"))
-    if page < total_pages:
-        nav_buttons.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"studios_page:{page + 1}"))
-
-    if nav_buttons:
-        keyboard.append(nav_buttons)
-        keyboard.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data="main_menu")])
-
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-
-def get_studio_card_keyboard(studio_id: int, page: int) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"studios_page:{page}")],
-        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"studio_detail:{studio_id}:{page}")],
-    ])
-
-
-def get_studio_detail_keyboard(studio: Studios, page: int, photo_msg_id: int = 0) -> InlineKeyboardMarkup:
-    """
-    Клавиатура для детальной карточки студии.
-    """
-    buttons = [
-        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"studio_back:{studio.id}:{page}:{photo_msg_id}")],
-        [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/studii/")],
-        [InlineKeyboardButton(text="🖍 Записаться в кружок", url="https://dk.mosreg.ru/")],
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
-
-
-# ---------- Рендеры ----------
-async def render_studio_list(message_or_callback, session: AsyncSession, page: int = 1) -> None:
-    """
-    Отображение списка студий.
-    """
-
+    # await callback.message.answer(f"render func {category}")
     offset = (page - 1) * STUDIOS_PER_PAGE
-    studios = (
-        await session.execute(
-            select(Studios).offset(offset).limit(STUDIOS_PER_PAGE)
-        )
-    ).scalars().all()
 
-    total = (await session.execute(select(func.count(Studios.id)))).scalar_one()
+    # корректная фильтрация: бесплатные — cost == 0, платные — cost > 0
+    if is_free:
+        cost_filter = (Studios.cost == 0)
+    else:
+        cost_filter = (Studios.cost > 0)
+
+    # базовый запрос
+    query = select(Studios).where(cost_filter)
+
+    if category:
+        query = query.where(Studios.category == category)
+
+
+    studios = (await session.execute(query.offset(offset).limit(STUDIOS_PER_PAGE))).scalars().all()
+
+    total_query = select(func.count(Studios.id)).where(cost_filter)
+    if category:
+        total_query = total_query.where(Studios.category == category)
+        total = (await session.execute(total_query)).scalar_one()
+    else:
+        total = (await session.execute(total_query)).scalar_one()
+
     total_pages = (total + STUDIOS_PER_PAGE - 1) // STUDIOS_PER_PAGE
 
     if not studios:
-        logger.warning("Страница %s пуста — студии не найдены", page)
-        if isinstance(message_or_callback, CallbackQuery):
-            await message_or_callback.message.delete()
-            await message_or_callback.message.answer("❌ Студии не найдены")
-        else:
-            await message_or_callback.answer("❌ Студии не найдены")
+        kb_back = InlineKeyboardMarkup(inline_keyboard=([[InlineKeyboardButton(text="⬅ К категориям", callback_data=f"studios_free_{is_free}")]]))
+        await callback.message.answer("В этой категории пока нет студий", reply_markup=kb_back)
+        await callback.answer()
         return
 
-    text = "📋 <b>Список студий:</b>\n\n"
-    keyboard = get_studios_keyboard(studios, page, total_pages)
-    target = message_or_callback.message if isinstance(message_or_callback, CallbackQuery) else message_or_callback
+    text = f"📋 <b>Список {'бесплатных' if is_free else 'платных'} студий</b>\n"
+    if category:
+        text += f"Категория: {category.capitalize()}\n\n"
 
-    try:
-        if target.text:
-            await target.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
-        else:
-            await target.delete()
-            await target.answer(text, reply_markup=keyboard, parse_mode="HTML")
-    except Exception as e:
-        logger.error("Ошибка при отображении списка студий: %s", e, exc_info=True)
-        await target.answer(text, reply_markup=keyboard, parse_mode="HTML")
+    # список кнопок
+    keyboard = [
+        [InlineKeyboardButton(
+            text=f"{'🆓' if studio.cost == 0 else '💳'} {Big_litter_start(studio.name)}",
+            callback_data=f"studio_card:{studio.id}:{page}_{callback.data}"
+        )] for studio in studios
+    ]
 
-    if isinstance(message_or_callback, CallbackQuery):
-        await message_or_callback.answer()
+    # пагинация
+    query = callback.data.split(":")[-1]
+    nav = []
+    if page > 1:
+        nav.append(InlineKeyboardButton(text="⏮ Назад", callback_data=f"std_p:{page - 1}:{query}"))
+        logger.debug(callback.data)
+    if page < total_pages:
+        nav.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"std_p:{page + 1}:{query}"))
+        logger.debug(callback.data)
+    if nav:
+        keyboard.append(nav)
+
+    keyboard.append([InlineKeyboardButton(text="⬅ К категориям", callback_data=f"studios_free_{is_free}")])
+    keyboard.append([InlineKeyboardButton(text="🏠 В главное меню", callback_data="main_menu")])
+
+    std_list_kb = InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+    if category != None:
+        logger.info(f"{callback.data}")
+        try:
+            await callback.message.edit_text(
+                f"📋 {'Бесплатные' if is_free else 'Платные'} студии в категории <b>{category.capitalize() if category != 'unknown' else 'Другое'}</b>:",
+                reply_markup=std_list_kb
+            )
+        except:
+            await callback.message.answer(
+                f"📋 {'Бесплатные' if is_free else 'Платные'} студии в категории <b>{category.capitalize() if category != 'unknown' else 'Другое'}</b>:",
+                reply_markup=std_list_kb
+            )
+    else:
+        try:
+            await callback.message.edit_text(
+                f"📋 Список всех <b>{'бесплатных' if is_free else 'платных'}</b> студий:", reply_markup=std_list_kb
+            )
+        except:
+            await callback.message.answer(
+                f"📋 Список всех <b>{'бесплатных' if is_free else 'платных'}</b> студий:", reply_markup=std_list_kb
+            )
+        logger.warning(f"{callback.data}")
+    logger.info(
+        "Пользователь %s открыл список студий категории %s",
+        callback.from_user.id,
+        category,
+    )
+    await callback.answer()
 
 
-async def render_studio_card(callback: CallbackQuery, studio: Studios, page: int) -> None:
-    """
-    Краткая карточка студии.
-    """
-    logger.info(f"Пользователь {callback.from_user.id} просматривает студию {studio.id}")
 
+async def render_studio_card(callback: CallbackQuery, studio, session: AsyncSession, data):
     description = studio.description or "Нет описания"
     short_desc = description[:350] + (
-        "<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше и записаться</i>"
-        if len(description) > 350 else ""
-    )
+        "<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше и записаться</i>" if len(
+            description) > 350 else "")
 
+    text = f"<b>{studio.name}</b>\n\n{short_desc}"
     text = (
         f"<b>{studio.name}</b>\n\n"
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
@@ -130,29 +143,29 @@ async def render_studio_card(callback: CallbackQuery, studio: Studios, page: int
         f"🏷 Категория: {studio.category if studio.category != 'unknown' else 'Другое'}\n"
         f"ℹ️ {short_desc or 'Нет описания'}"
     )
-    kb = get_studio_card_keyboard(studio.id, page)
 
-    try:
-        await callback.message.delete()
-    except Exception as e:
-        logger.debug("Не удалось удалить предыдущее сообщение: %s", e)
-
-    try:
-        if studio.img:
-            await callback.message.answer_photo(studio.img, caption=text[:1024], reply_markup=kb, parse_mode="HTML")
-        else:
-            await callback.message.answer(text[:4095], reply_markup=kb, parse_mode="HTML")
-    except Exception as e:
-        logger.error("Ошибка при показе карточки студии ID=%s: %s", studio.id, e, exc_info=True)
-
-    await callback.answer()
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"{data[0]}")],
+        [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"std_dl:{studio.id}:{data[0]}")]
+    ])
 
 
-async def render_studio_detail(callback: CallbackQuery, studio: Studios, page: int) -> None:
-    """
-    Полная карточка студии.
-    """
-    logger.debug("Открытие детальной карточки студии. ID=%s, Страница=%s", studio.id, page)
+    if studio.img:
+        try:
+            await callback.message.delete()
+        except:
+            pass
+        await callback.message.answer_photo(studio.img, caption=f"{text}", reply_markup=kb)
+    else:
+        await callback.message.answer(text[:4095], reply_markup=kb, parse_mode="HTML")
+
+
+async def render_studio_detail(callback: CallbackQuery, session: AsyncSession, studio, query):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"{query}")],
+        [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/studii/")],
+        [InlineKeyboardButton(text="🖍 Записаться в кружок", url="https://dk.mosreg.ru/")]
+    ])
 
     text = (
         f"<b>{studio.name}</b>\n\n"
@@ -162,77 +175,124 @@ async def render_studio_detail(callback: CallbackQuery, studio: Studios, page: i
         f"🏷 Категория: {studio.category}\n"
         f"ℹ️ {studio.description or 'Нет описания'}"
     )
-    kb = get_studio_detail_keyboard(studio, page)
 
+    await callback.message.answer(text, reply_markup= kb)
+
+
+
+# -----------Обработчики ---------------------
+
+
+@studios_router.message(Command("studios"))
+async def show_studios(message: types.Message):
+    await start_studios(message)
+
+
+@studios_router.callback_query(F.data == "studios")
+async def studios_callback(callback: CallbackQuery):
+    # передаём message (не сам callback), чтобы start_fsm_studios использовал метод answer/edit_text
+    await start_studios(callback.message)
+
+
+async def start_studios(target: types.Message):
+    text = "Выберите, какие студии показать:"
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="🆓 Бесплатные", callback_data="studios_free_True")],
+            [InlineKeyboardButton(text="💳 Платные", callback_data="studios_free_False")],
+            [InlineKeyboardButton(text="🏠 В главное меню", callback_data="main_menu")],
+        ]
+    )
     try:
-        if callback.message.photo:
-            await callback.message.delete()
-            await callback.message.answer(text[:4095], reply_markup=kb, parse_mode="HTML")
-        else:
-            await callback.message.edit_text(text[:4095], reply_markup=kb, parse_mode="HTML")
-    except Exception as e:
-        logger.error("Ошибка при показе детальной карточки студии ID=%s: %s", studio.id, e, exc_info=True)
-        await callback.message.answer(text[:4095], reply_markup=kb, parse_mode="HTML")
+        await target.edit_text(text, reply_markup=kb)
+    except Exception:
+        await target.answer(text, reply_markup=kb)
 
+
+@studios_router.callback_query(F.data.startswith("studios_free"))
+async def choose_category(callback: CallbackQuery, session: AsyncSession):
+    is_free = callback.data.endswith("True")
+
+    # собираем список категорий
+    result = await session.execute(select(Studios.category).distinct())
+    categories = result.scalars().all()
+
+    buttons = [
+        [InlineKeyboardButton(text="📋 Показать все", callback_data=f"std_list_{is_free}_all")]
+    ]
+
+    for category in categories:
+        display = 'Другое' if category == 'unknown' else (category or 'Не указано')
+        # В callback_data передаём оригинальное значение категории (без .lower()), чтобы фильтр был точным
+        code = short_code(category)
+        CATEGORY_MAP[code] = category  # сохраняем в словарь
+        buttons.append([
+            InlineKeyboardButton(
+                text=display.capitalize(),
+                callback_data=f"std_list_{is_free}_{code}"
+            )
+        ])
+
+    buttons.append([InlineKeyboardButton(text="⬅ Назад", callback_data="studios")])
+
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text(
+        f"Список {'бесплатных' if is_free else 'платных'} категорий студий:",
+        reply_markup=kb
+    )
     await callback.answer()
 
 
-# ---------- Хендлеры ----------
-@studios_router.callback_query(F.data == "list_studios")
-async def list_studios_handler(callback: CallbackQuery, session: AsyncSession):
-    logger.info("Пользователь %s запросил список студий", callback.from_user.id)
-    await render_studio_list(callback, session, page=1)
+# ---------- STEP 3: список студий ----------
+@studios_router.callback_query(F.data.startswith("std_list_"))
+async def std_list(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    # Ожидаем формат: std_list_{is_free}_<category_or_all>
+    _, _, is_free_str, category = callback.data.split("_", 3)
+    category = CATEGORY_MAP.get(category)
+    is_free = is_free_str == "True"
+    category = None if category == "all" else category
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await render_studio_list(callback, session, is_free, category, page=1)
 
 
-@studios_router.callback_query(F.data.startswith("studios_page:"))
-async def studios_page_handler(callback: CallbackQuery, session: AsyncSession):
+@studios_router.callback_query(F.data.startswith("std_p:"))
+async def std_p(callback: CallbackQuery, session: AsyncSession, bot: Bot):
     page = int(callback.data.split(":")[1])
-    logger.info("Пользователь %s переключился на страницу %s студий", callback.from_user.id, page)
-    await render_studio_list(callback, session, page)
+    data = callback.data.split("_list_")[1]
+    is_free, category = data.split('_')
+    category = (None if category == 'all' else CATEGORY_MAP.get(category))
+    await render_studio_list(callback, session, is_free == "True", category, page)
 
 
 @studios_router.callback_query(F.data.startswith("studio_card:"))
-async def studio_card_handler(callback: CallbackQuery, session: AsyncSession):
-    studio_id, page = map(int, callback.data.split(":")[1:])
-    logger.info("Пользователь %s открыл карточку студии ID=%s", callback.from_user.id, studio_id)
+async def studio_card(callback: CallbackQuery, session: AsyncSession, bot: Bot):
+    # await callback.message.answer(callback.data)
+    card, back_mark = callback.data.split('std_list_')
+    studio_id, page = card.split(":")[1:3]
+    page = page.split("_")[0]
 
+    studio = await orm_get_studio(session, int(studio_id))
+    msg_id = callback.message.message_id
+    back_mark = f"std_list_{back_mark}"
+    data = [back_mark,page,msg_id]
+
+    await render_studio_card(callback,studio, session, data)
+
+
+@studios_router.callback_query(F.data.startswith("std_dl:"))
+async def studio_detail(callback: CallbackQuery, session: AsyncSession):
+    studio_id = int(callback.data.split(":")[1])
+    query = callback.data.split(":")[-1]
     studio = await orm_get_studio(session, studio_id)
-    if not studio:
-        logger.warning("Студия ID=%s не найдена", studio_id)
-        await callback.answer("Студия не найдена", show_alert=True)
-        return
-
-    await render_studio_card(callback, studio, page)
-
-
-@studios_router.callback_query(F.data.startswith("studio_detail:"))
-async def studio_detail_handler(callback: CallbackQuery, session: AsyncSession):
-    studio_id, page = map(int, callback.data.split(":")[1:])
-    logger.info("Пользователь %s открыл детальную карточку студии ID=%s", callback.from_user.id, studio_id)
-
-    studio = await orm_get_studio(session, studio_id)
-    if not studio:
-        logger.warning("Студия ID=%s не найдена", studio_id)
-        await callback.answer("Студия не найдена", show_alert=True)
-        return
-
-    await render_studio_detail(callback, studio, page)
-
-
-@studios_router.callback_query(F.data.startswith("studio_back:"))
-async def studio_back_handler(callback: CallbackQuery, session: AsyncSession):
-    studio_id, page, photo_msg_id = map(int, callback.data.split(":")[1:])
-    logger.info("Пользователь %s вернулся из детальной карточки студии ID=%s на страницу %s", callback.from_user.id, studio_id, page)
-
-    if photo_msg_id:
-        try:
-            await callback.bot.delete_message(callback.message.chat.id, photo_msg_id)
-        except Exception as e:
-            logger.debug("Не удалось удалить фото-сообщение ID=%s: %s", photo_msg_id, e)
-
-    studio = await orm_get_studio(session, studio_id)
-    if studio:
-        await render_studio_card(callback, studio, page)
-    else:
-        logger.warning("Студия ID=%s не найдена при возврате", studio_id)
-        await callback.answer("Студия не найдена", show_alert=True)
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await render_studio_detail(callback,session,studio,query)
+    try:
+        await callback.message.delete()
+    except:
+        pass

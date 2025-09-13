@@ -11,7 +11,7 @@ from data.text import contact, help
 from handlers.Event_list import render_event_list
 from handlers.News_list import render_all_news
 from handlers.Serviсes import get_services_keyboard
-from handlers.Studio_list import render_studio_list
+# from handlers.Studio_list import render_studio_list
 from handlers.notification import get_subscriptions_kb
 
 # ================== ЛОГИРОВАНИЕ ==================
@@ -30,8 +30,8 @@ async def get_main_menu_kb(user: types.User, session: AsyncSession) -> InlineKey
     role = await get_user_role(user.id, session)
     buttons = [
         [
-            InlineKeyboardButton(text="📆 Афиша мероприятий", callback_data="list_events"),
-            InlineKeyboardButton(text="💃 Студии", callback_data="list_studios"),
+            InlineKeyboardButton(text="📆 Афиша мероприятий", callback_data="events"),
+            InlineKeyboardButton(text="💃 Студии", callback_data="studios"),
         ],
         [
             InlineKeyboardButton(text="🗞 Новости", callback_data="list_news"),
@@ -82,7 +82,10 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
 
     if isinstance(target, CallbackQuery):
         try:
-            await target.message.edit_text(text, reply_markup=kb)
+            try:
+                await target.message.edit_text(text, reply_markup=kb)
+            except:
+                pass
         except Exception as e:
             # logger.warning("Не удалось отредактировать главное меню, отправляем новое сообщение: %s", e)
             await target.message.delete()
@@ -187,25 +190,11 @@ async def services_callback(callback: CallbackQuery):
     await callback.message.edit_text("Дополнительные услуги", reply_markup=get_services_keyboard())
 
 
-# ---------- Студии ----------
-@menu2_router.message(Command("studios"))
-async def show_studios(message: types.Message, session: AsyncSession):
-    logger.info("Пользователь %s вызвал команду /studios", message.from_user.id)
-    await render_studio_list(message, session)
-
-
 # ---------- Новости ----------
 @menu2_router.message(Command("news"))
 async def news_command(message: types.Message, session: AsyncSession):
     logger.info("Пользователь %s вызвал команду /news", message.from_user.id)
     await render_all_news(message, session)
-
-
-# ---------- Афиша ----------
-@menu2_router.message(Command("events"))
-async def events_command(message: types.Message, session: AsyncSession):
-    logger.info("Пользователь %s вызвал команду /events", message.from_user.id)
-    await render_event_list(message, session, page=1)
 
 
 # ---------- Подписки ----------
@@ -223,3 +212,12 @@ async def notification_command(message: types.Message, session: AsyncSession):
 
     user = await orm_get_user(session, message.from_user.id)
     await message.answer("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
+
+
+
+
+# # ---------- Афиша ----------
+# @menu2_router.message(Command("events"))
+# async def events_command(message: types.Message, session: AsyncSession):
+#     logger.info("Пользователь %s вызвал команду /events", message.from_user.id)
+#     await render_event_list(message, session, page=1)

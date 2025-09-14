@@ -8,6 +8,7 @@ services:
     init: true
     env_file:
       - .env
+    shm_size: '2gb'
     volumes:
       - ./logs:/app/logs
       - yauza_db:/app/data

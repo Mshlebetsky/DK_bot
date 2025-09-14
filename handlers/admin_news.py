@@ -161,7 +161,7 @@ async def edit_news_field(callback: CallbackQuery, state: FSMContext):
     await state.update_data(field=field)
     logger.debug("Editing field chosen: %s", field)
     await state.set_state(EditNewsFSM.value)
-    await callback.message.answer(f"Введите новое значение для поля {field}:\n{"Введите - чтобы вернуть изначальное значение названия" if field=='title' else ''}")
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n{'Введите - чтобы вернуть изначальное значение названия' if field=='title' else ''}")
 
 
 @admin_news_router.message(EditNewsFSM.value)

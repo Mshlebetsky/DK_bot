@@ -74,7 +74,8 @@ USER appuser
 # Переменные окружения по умолчанию
 # ==========================
 ENV DB_LITE="sqlite+aiosqlite:///data/bot.sqlite3"
-
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 # ==========================
 # Запуск
 # ==========================

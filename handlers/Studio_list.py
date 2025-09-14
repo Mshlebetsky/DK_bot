@@ -118,7 +118,7 @@ async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
             await callback.message.answer(
                 f"📋 Список всех <b>{'бесплатных' if is_free else 'платных'}</b> студий:", reply_markup=std_list_kb
             )
-        logger.warning(f"{callback.data}")
+        logger.info(f"{callback.data}")
     logger.info(
         "Пользователь %s открыл список студий категории %s",
         callback.from_user.id,

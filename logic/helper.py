@@ -2,6 +2,8 @@ from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
 import re
 
+
+
 def is_valid_url(url: str) -> bool:
     """Простая проверка, что ссылка похожа на валидную картинку"""
     if not url:
@@ -115,4 +117,34 @@ async def close_item_card(callback: types.CallbackQuery):
     await callback.answer()
 
 
+def Big_litter_start(s: str):
+    if s[0] == '«':
+        return f'«{s[1:].capitalize()}'
+    elif s[0] ==  '\"':
+        return f'\"{s[1:].capitalize()}'
+    else:
+        return s.capitalize()
 
+
+async def safe_edit_message(message: types.Message, text: str, kb: InlineKeyboardMarkup) -> None:
+    """
+    Универсальное редактирование сообщения.
+    Если это текст — edit_text.
+    Если это фото/видео с подписью — edit_caption.
+    Если редактирование невозможно — удаляет и шлёт новое.
+    """
+    try:
+        if message.text:  # обычное текстовое сообщение
+            await message.edit_text(text, reply_markup=kb, parse_mode="HTML")
+        elif message.caption:  # сообщение с подписью (фото, видео и т.д.)
+            await message.edit_caption(caption=text, reply_markup=kb, parse_mode="HTML")
+        else:
+            await message.delete()
+            await message.answer(text, reply_markup=kb, parse_mode="HTML")
+    except Exception as e:
+        from handlers.Event_list import logger
+        logger.warning("safe_edit_message: %s", e)
+        try:
+            await message.answer(text, reply_markup=kb, parse_mode="HTML")
+        except Exception as inner_e:
+            logger.error("Не удалось отправить новое сообщение: %s", inner_e)

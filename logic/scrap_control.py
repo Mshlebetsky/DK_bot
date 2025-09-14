@@ -29,21 +29,23 @@ async def update_events(session, notify_users=False, bot=None):
 
     for name, values in data.items():
         try:
-            event_date, description, age_limits, img, link = values
+            event_date, description, age_limits, img, link, is_free = values
         except ValueError:
             logger.warning("⚠ Ошибка формата события: %s", name)
             continue
 
         event = await orm_query.orm_get_event_by_name(session, name)
         if event:
-            await orm_update_event(session, event.id, {
-                "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
-                "description": description,
-                "age_limits": age_limits,
-                "img": img,
-                "link": link
-            })
-            updated += 1
+            if event.lock_changes == "False":
+                await orm_update_event(session, event.id, {
+                    "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
+                    "description": description,
+                    "age_limits": age_limits,
+                    "img": img,
+                    "link": link,
+                    "is_free": is_free
+                })
+                updated += 1
         else:
             await orm_add_event(session, {
                 "name": name,
@@ -51,7 +53,8 @@ async def update_events(session, notify_users=False, bot=None):
                 "description": description,
                 "age_limits": age_limits,
                 "img": img,
-                "link": link
+                "link": link,
+                "is_free": is_free
             })
             added += 1
             new_items.append((name, img, event_date, age_limits))
@@ -85,8 +88,9 @@ async def update_news(session, notify_users=False, bot=None):
 
         news = await orm_query.orm_get_news_by_name(session, name)
         if news:
-            await orm_update_news(session, news.id, {"description": description, "img": img})
-            updated += 1
+            if news.lock_changes == "False":
+                await orm_update_news(session, news.id, {"description": description, "img": img})
+                updated += 1
         else:
             await orm_add_news(session, {"name": name, "description": description, "img": img})
             added += 1
@@ -119,14 +123,16 @@ async def update_studios(session):
 
         studio = await orm_get_studio_by_name(session, name)
         if studio:
-            await orm_update_studio(session, studio.id, "description", description)
-            await orm_update_studio(session, studio.id, "cost", int(cost))
-            await orm_update_studio(session, studio.id, "age", age)
-            await orm_update_studio(session, studio.id, "img", img)
-            await orm_update_studio(session, studio.id, "qr_img", qr_img)
-            await orm_update_studio(session, studio.id, "teacher", teacher)
-            await orm_update_studio(session, studio.id, "category", category)
-            updated += 1
+            if studio.lock_changes == "False":
+                logger.info(f"Начато изменение студии {name}")
+                await orm_update_studio(session, studio.id, "description", description)
+                await orm_update_studio(session, studio.id, "cost", int(cost))
+                await orm_update_studio(session, studio.id, "age", age)
+                await orm_update_studio(session, studio.id, "img", img)
+                await orm_update_studio(session, studio.id, "qr_img", qr_img)
+                await orm_update_studio(session, studio.id, "teacher", teacher)
+                await orm_update_studio(session, studio.id, "category", category)
+                updated += 1
         else:
             new_data = {
                 "name": name,

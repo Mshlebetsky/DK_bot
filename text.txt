@@ -2,7 +2,9 @@ TOKEN=8139355615:AAFSs09vi_SwiOw0uuFpWfb9lHlXwc5_4bM
 DB_LITE=sqlite+aiosqlite:///my_base.db
 ADMINS_LIST=435946390,2313213,1515846525,6266217488
 
-
+TOKEN=8289872442:AAFzX6BfHdBaXvltFVV1bBkKHKSdb-sXUkQ
+DB_LITE=sqlite+aiosqlite:///my_base.db
+ADMINS_LIST=435946390
 
 ✅ Как исправить
 

@@ -1,4 +1,5 @@
 from aiogram import Router, types, F
+from aiogram.filters import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from sqlalchemy import select
@@ -10,7 +11,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 from database.orm_query import orm_get_user, orm_update_user_subscription, orm_add_user
 
 
-logger = logging.getLogger("bot.reminders")
+# ================== ЛОГИРОВАНИЕ ==================
+
+logger = logging.getLogger(__name__)
+
+# ================== РОУТЕР ==================
 
 
 notificate_router = Router()
@@ -20,6 +25,8 @@ notificate_router.message.filter(ChatTypeFilter(["private"]))
 # ---------- Утилита ----------
 async def get_or_create_user(session: AsyncSession, tg_user: types.User):
     """Получить пользователя из БД или создать нового"""
+    logger.info(f"Пользователь {tg_user} добавлен в БД")
+
     user = await orm_get_user(session, tg_user.id)
     if not user:
         user = await orm_add_user(
@@ -54,21 +61,32 @@ def get_subscriptions_kb(user):
 
 async def build_subscriptions_text(session, user_id: int) -> str:
     """
-    Формирует текст для вкладки подписок: подписки + отслеживаемые мероприятия
+    Формирует текст для вкладки подписок: подписки + отслеживаемые мероприятия (только будущие).
     """
     # Подписки пользователя
-    result = await session.execute(select(UserEventTracking.event_id).where(UserEventTracking.user_id == user_id))
+    result = await session.execute(
+        select(UserEventTracking.event_id).where(UserEventTracking.user_id == user_id)
+    )
     event_ids = result.scalars().all()
 
     text = "Здесь вы можете управлять подписками.\n\n"
 
     if event_ids:
-        events = await session.execute(select(Events).where(Events.id.in_(event_ids)))
+        now = datetime.now()
+        events = await session.execute(
+            select(Events).where(
+                Events.id.in_(event_ids),
+                Events.date >= now  # показываем только актуальные
+            )
+        )
         events = events.scalars().all()
 
-        text += "📌 Вы отслеживаете следующие мероприятия:\n"
-        for ev in events:
-            text += f" • <b>{ev.name}</b> — {ev.date:%d.%m.%Y}\n"
+        if events:
+            text += "📌 Вы отслеживаете следующие мероприятия:\n"
+            for ev in events:
+                text += f" • <b>{ev.name}</b> — {ev.date:%d.%m.%Y %H:%M}\n"
+        else:
+            text += "📌 У вас нет актуальных отслеживаемых мероприятий.\n"
     else:
         text += "📌 Вы пока не отслеживаете мероприятия.\n"
 
@@ -76,9 +94,10 @@ async def build_subscriptions_text(session, user_id: int) -> str:
 
 
 # ---------- Сообщение (через кнопку) ----------
-@notificate_router.message(F.text == "🔔 Подписки")
-async def show_subscriptions(message: types.Message, session: AsyncSession, user: Users):
-    text = await build_subscriptions_text(session, user.user_id)
+@notificate_router.message(Command('notifications'))
+async def show_subscriptions(message: types.Message, session: AsyncSession):
+    user = await orm_get_user(session, message.from_user.id)
+    text = await build_subscriptions_text(session, message.from_user.id)
     await message.answer(text, reply_markup=get_subscriptions_kb(user))
 
 
@@ -88,6 +107,7 @@ async def show_subscriptions_(callback: CallbackQuery, session: AsyncSession):
     user = await orm_get_user(session, callback.from_user.id)
     text = await build_subscriptions_text(session, callback.from_user.id)
     await callback.message.edit_text(text, reply_markup=get_subscriptions_kb(user))
+    logger.info(f"Пользователь {callback.from_user.id} зашел в подписки")
 
 
 # ---------- Подписка / Отписка ----------
@@ -98,15 +118,20 @@ async def toggle_subscription(callback: CallbackQuery, session: AsyncSession):
     if callback.data == "sub_news":
         await orm_update_user_subscription(session, user_id, news=True)
         text = "✅ Подписка на новости оформлена!"
+        logger.info(f"Пользователь {user_id} подписался на новости")
     elif callback.data == "unsub_news":
         await orm_update_user_subscription(session, user_id, news=False)
         text = "❌ Подписка на новости отменена."
+        logger.info(f"Пользователь {user_id} отписался от новостей")
     elif callback.data == "sub_events":
         await orm_update_user_subscription(session, user_id, events=True)
         text = "✅ Подписка на мероприятия оформлена!"
+        logger.info(f"Пользователь {user_id} подписался на афишу")
     else:
         await orm_update_user_subscription(session, user_id, events=False)
         text = "❌ Подписка на мероприятия отменена."
+        logger.info(f"Пользователь {user_id} отписался от афиши")
+
 
     user = await orm_get_user(session, user_id)
     await callback.message.edit_reply_markup(reply_markup=get_subscriptions_kb(user))
@@ -128,25 +153,28 @@ async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | N
         try:
             try:
                 await bot.send_photo(user_id, img, caption=text[:1024], parse_mode="HTML", reply_markup=kb_news if type_ == 'news' else kb_events)
+                logger.info(f"Рассылка c картинками отправлена")
             except:
                 await bot.send_message(user_id, text[:4096], parse_mode="HTML")
+                logger.info(f"Рассылка без картинок отправлена")
+
         except Exception as e:
-            print(f"Не удалось отправить сообщение пользователю {user_id}: {e}")
+            logger.warning(f"Рассылка не удалась")
 
 
 # ---------- Напоминания о мероприятиях ----------
 async def send_event_reminders(bot, session):
     now = datetime.now().date()
-    two_weeks = now + timedelta(days=2)
+    two_days = now + timedelta(days=14)
 
     # выбираем события на ближайшие 2 недели
     result = await session.execute(
-        select(Events).where(Events.date.between(now, two_weeks))
+        select(Events).where(Events.date.between(now, two_days))
     )
     events = result.scalars().all()
 
     if not events:
-        logger.info("Нет событий в ближайшие 2 недели")
+        logger.info("Нет событий в ближайшие 2 дня")
         return
 
     for event in events:
@@ -196,8 +224,6 @@ async def send_event_reminders(bot, session):
             except Exception as e:
                 logger.warning(f"❌ Не удалось отправить {user_id}: {e}")
 
-
-logger = logging.getLogger("bot.broadcast")
 
 
 async def notify_all_users(bot, session, text: str, img: str | None = None):

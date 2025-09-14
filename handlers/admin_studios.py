@@ -217,7 +217,7 @@ async def edit_studio_field(callback: CallbackQuery, state: FSMContext):
     await state.update_data(field=field)
     await state.set_state(EditStudioFSM.value)
     logger.debug("Выбранное поле для редактирования: %s", field)
-    await callback.message.answer(f"Введите новое значение для поля {field}:\n{"Введите - чтобы вернуть изначальное значение названия" if field=='title' else ''}")
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n{'Введите - чтобы вернуть изначальное значение названия' if field=='title' else ''}")
 
 
 @admin_studios_router.message(EditStudioFSM.value)

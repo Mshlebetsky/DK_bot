@@ -74,7 +74,7 @@ def get_events_keyboard(events: Sequence[Events], page: int, total_pages: int, i
     """Формирует клавиатуру для списка событий."""
     keyboard = [
         [InlineKeyboardButton(
-            text=f"🗓 {ev.date:%d.%m} | {capitalize_title_safe(ev.name[:30])} | {ev.age_limits}+",
+            text=f"🗓 {ev.date:%d.%m} | {capitalize_title_safe(ev.name[:30] if ev.title == '' else ev.title[:30])} | {ev.age_limits}+",
             callback_data=f"event_card:{ev.id}:{page}:{int(is_free)}"
         )]
         for ev in events
@@ -214,7 +214,7 @@ async def render_event_card(callback: CallbackQuery, session: AsyncSession, even
         if len(desc) > 350 else ""
     )
     date_line = f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n" if getattr(event, "date", None) else ""
-    text = f"<b>{event.name} | {event.age_limits}+ </b>\n\n{date_line}{short_desc}"
+    text = f"<b>{event.name if event.title == '' else event.title} | {event.age_limits}+ </b>\n\n{date_line}{short_desc}"
 
     kb = get_event_card_keyboard(event, page, is_free, is_tracking=is_tracking)
 
@@ -248,7 +248,7 @@ async def render_event_detail(callback: CallbackQuery, session: AsyncSession, ev
         return
 
     text = (
-        f"<b>{event.name} | {event.age_limits}+</b>\n\n"
+        f"<b>{event.name if event.title == '' else event.title} | {event.age_limits}+</b>\n\n"
         f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
         f"{event.description or 'Нет описания'}"
     )

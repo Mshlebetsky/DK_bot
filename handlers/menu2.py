@@ -59,8 +59,9 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
     else:
         logger.warning("Попытка рендера главного меню для неизвестного объекта: %s", type(target))
         return
+
+    # Добавляем/обновляем пользователя
     try:
-        # Добавляем пользователя в БД
         await orm_add_user(
             session,
             user_id=user.id,
@@ -70,30 +71,33 @@ async def render_main_menu(target: types.Message | CallbackQuery, session: Async
         )
     except Exception as e:
         logger.warning(f"Не удалось добавить пользователя при рендере главного меню {e}")
-        pass
+
     try:
         await orm_last_seen_time_user(session, user.id)
     except Exception as e:
         logger.warning(f"Не удалось обновить время последнего визита пользователя {e}")
-        pass
+
     logger.info("Пользователь %s (%s) вошел в главное меню", user.id, user.username)
 
     kb = await get_main_menu_kb(user, session)
 
     if isinstance(target, CallbackQuery):
         try:
-            try:
-                await target.message.edit_text(text, reply_markup=kb)
-            except:
-                pass
+            await target.message.edit_text(text, reply_markup=kb)
         except Exception as e:
-            # logger.warning("Не удалось отредактировать главное меню, отправляем новое сообщение: %s", e)
-            await target.message.delete()
+            logger.debug("Не удалось отредактировать сообщение, пробуем удалить и отправить новое: %s", e)
+            # logger.info("Не удалось отредактировать сообщение, пробуем удалить и отправить новое: %s", e)
+            try:
+                await target.message.delete()
+            except Exception as del_err:
+                logger.warning("Не удалось удалить старое сообщение: %s", del_err)
             await target.message.answer(text, reply_markup=kb)
+
         await target.answer()
 
     elif isinstance(target, types.Message):
         await target.answer(text, reply_markup=kb)
+
 
 
 @menu2_router.message(Command("menu"))
@@ -136,9 +140,17 @@ async def main_menu_callback(callback: CallbackQuery, bot: Bot, state: FSMContex
             logger.warning("Не удалось удалить сообщение с локацией %s: %s", location_msg_id, e)
 
         await state.update_data(location_msg_id=None)
-
+    # try:
+    #     if callback.message.content_type == "text":
+    #         await callback.message.edit_text("Главное меню", reply_markup=await get_main_menu_kb(callback.from_user, session), parse_mode="HTML")
+    #     else:
+    #         await callback.message.delete()
+    #         await callback.message.answer("Главное меню", reply_markup=await get_main_menu_kb(callback.from_user, session), parse_mode="HTML")
+    # except Exception as e:
+    #     logging.warning(f"Ошибка при переходе в главное меню: {e}")
+    #     await callback.message.answer("Главное меню", reply_markup=await get_main_menu_kb(callback.from_user, session), parse_mode="HTML")
     await render_main_menu(callback, session)
-
+    await callback.answer()
 
 # ---------- Контакты ----------
 @menu2_router.callback_query(F.data == "contacts")

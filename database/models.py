@@ -3,6 +3,8 @@
 """
 
 from datetime import datetime
+from email.policy import default
+
 from sqlalchemy import (
     String,
     Text,
@@ -39,10 +41,12 @@ class News(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default='')
     description: Mapped[str] = mapped_column(Text, nullable=False)
     img: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     is_shown: Mapped[bool] = mapped_column(Boolean, default=True)
     announced: Mapped[bool] = mapped_column(Boolean, default=False)
+    lock_changes: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Events(Base):
@@ -52,6 +56,7 @@ class Events(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default='')
     date: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     age_limits: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -60,6 +65,7 @@ class Events(Base):
     img: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     is_shown: Mapped[bool] = mapped_column(Boolean, default=True)
     announced: Mapped[bool] = mapped_column(Boolean, default=False)
+    lock_changes: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Studios(Base):
@@ -69,6 +75,7 @@ class Studios(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False, default='')
     description: Mapped[str] = mapped_column(Text, nullable=False)
     teacher: Mapped[str | None] = mapped_column(String, nullable=True)
     cost: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -78,6 +85,7 @@ class Studios(Base):
     img: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_shown: Mapped[bool] = mapped_column(Boolean, default=True)
     announced: Mapped[bool] = mapped_column(Boolean, default=False)
+    lock_changes: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Users(Base):

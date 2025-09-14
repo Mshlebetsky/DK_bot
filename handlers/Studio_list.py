@@ -75,7 +75,7 @@ async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
     # список кнопок
     keyboard = [
         [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {Big_litter_start(studio.name)}",
+            text=f"{'🆓' if studio.cost == 0 else '💳'} {Big_litter_start(studio.name if studio.title == '' else studio.title)}",
             callback_data=f"studio_card:{studio.id}:{page}_{callback.data}"
         )] for studio in studios
     ]
@@ -134,9 +134,9 @@ async def render_studio_card(callback: CallbackQuery, studio, session: AsyncSess
         "<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше и записаться</i>" if len(
             description) > 350 else "")
 
-    text = f"<b>{studio.name}</b>\n\n{short_desc}"
+    text = f"<b>{studio.name if studio.title == '' else studio.title}</b>\n\n{short_desc}"
     text = (
-        f"<b>{studio.name}</b>\n\n"
+        f"<b>{studio.name if studio.title == '' else studio.title}</b>\n\n"
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
         f"💰 Стоимость: {studio.cost} руб.\n"
         f"🎂 Возраст: {studio.age}\n"
@@ -168,7 +168,7 @@ async def render_studio_detail(callback: CallbackQuery, session: AsyncSession, s
     ])
 
     text = (
-        f"<b>{studio.name}</b>\n\n"
+        f"<b>{studio.name if studio.title == '' else studio.title}</b>\n\n"
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
         f"💰 Стоимость: {studio.cost} руб.\n"
         f"🎂 Возраст: {studio.age}\n"

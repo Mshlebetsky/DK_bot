@@ -3,6 +3,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc
+from unicodedata import category
 
 from database.models import News
 from database.orm_query import orm_get_news
@@ -44,7 +45,7 @@ def get_all_news_keyboard(news: list[News], page: int, total_pages: int) -> Inli
     """Клавиатура для списка новостей"""
     keyboard = [
         [InlineKeyboardButton(
-            text=Big_litter_start(n.name[:40]),
+            text=Big_litter_start(n.name[:40]  if n.title == '' else n.title[:40]),
             callback_data=f"news_card:{n.id}"
         )]
         for n in news
@@ -54,6 +55,7 @@ def get_all_news_keyboard(news: list[News], page: int, total_pages: int) -> Inli
     if page > 1:
         nav_buttons.append(InlineKeyboardButton(text="⏮ Назад", callback_data=f"all_news_page:{page-1}"))
     if page < total_pages:
+
         nav_buttons.append(InlineKeyboardButton(text="⏭ Далее", callback_data=f"all_news_page:{page+1}"))
 
     if nav_buttons:
@@ -95,18 +97,18 @@ async def render_news_card(target: Message | CallbackQuery, session: AsyncSessio
         if idx is not None:
             if idx > 0:
                 prev_news = neighbors[idx - 1]
-                short_name = prev_news.name[:100] + ("…" if len(prev_news.name) > 100 else "")
+                short_name = (prev_news.name[:100] if prev_news.title == '' else prev_news.title[:100])  + ("…" if len(prev_news.name if prev_news.title == '' else prev_news.title) > 100 else "")
                 neighbor_titles.append(f"⬅ <i>Предыдущая:</i> \n🗞 {Big_litter_start(short_name)}")
 
             next_two = neighbors[idx + 1: idx + 3]
             if next_two:
                 titles = "\n".join(
-                    f"🗞 {Big_litter_start(n.name[:100]) + ('…' if len(n.name) > 100 else '')}"
+                    f"🗞 {Big_litter_start(n.name[:100] if n.title == '' else n.title[:100]) + ('…' if len(n.name if n.title=='' else n.title) > 100 else '')}"
                     for n in next_two
                 )
                 neighbor_titles.append(f"➡ <i>Следующие:</i>\n{titles}")
 
-        text = f"<b>{Big_litter_start(news.name)}</b>\n\n{short_desc}\n\n" + "\n".join(neighbor_titles)
+        text = f"<b>{Big_litter_start(news.name if news.title=='' else news.title)}</b>\n\n{short_desc}\n\n" + "\n".join(neighbor_titles)
         kb = get_news_card_keyboard(news.id)
 
         msg_target = target.message if isinstance(target, CallbackQuery) else target
@@ -139,7 +141,7 @@ async def render_news_card(target: Message | CallbackQuery, session: AsyncSessio
 async def render_news_detail(target: Message | CallbackQuery, news: News):
     """Полная карточка новости"""
     try:
-        text = f"<b>{news.name}</b>\n\n{news.description or 'Нет описания'}"
+        text = f"<b>{news.name  if news.title == '' else news.name}</b>\n\n{news.description or 'Нет описания'}"
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="🔙 Назад", callback_data=f"news_card:{news.id}")],
@@ -188,10 +190,16 @@ async def render_all_news(target: Message | CallbackQuery, session: AsyncSession
         msg_target = target.message if isinstance(target, CallbackQuery) else target
         try:
             if getattr(msg_target, "text", None):
-                await msg_target.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+                try:
+                    await msg_target.edit_text(text, reply_markup=keyboard, parse_mode="HTML")
+                except:
+                    await msg_target.answer(text, reply_markup=keyboard)
             else:
-                await msg_target.delete()
-                await msg_target.answer(text, reply_markup=keyboard, parse_mode="HTML")
+                try:
+                    await msg_target.delete()
+                    await msg_target.answer(text, reply_markup=keyboard, parse_mode="HTML")
+                except:
+                    pass
         except Exception as e:
             logger.exception("Ошибка при отправке списка новостей: %s", e)
             await msg_target.answer(text, reply_markup=keyboard, parse_mode="HTML")
@@ -217,6 +225,10 @@ async def list_news_handler(callback: CallbackQuery, session: AsyncSession):
         ).scalars().first()
 
         if last_news:
+            try:
+                await callback.message.delete()
+            except:
+                pass
             await render_news_card(callback, session, last_news.id)
         else:
             await callback.answer("❌ Новостей нет", show_alert=True)
@@ -229,6 +241,10 @@ async def list_news_handler(callback: CallbackQuery, session: AsyncSession):
 @news_router.callback_query(F.data.startswith("news_card:"))
 async def news_card_handler(callback: CallbackQuery, session: AsyncSession):
     news_id = int(callback.data.split(":")[1])
+    try:
+        await callback.message.delete()
+    except:
+        pass
     await render_news_card(callback, session, news_id)
 
 
@@ -264,6 +280,10 @@ async def news_prev_handler(callback: CallbackQuery, session: AsyncSession):
     ).scalars().first()
 
     if prev_news:
+        try:
+            await callback.message.delete()
+        except:
+            pass
         await render_news_card(callback, session, prev_news.id)
     else:
         await callback.answer("Это самая старая новость")
@@ -280,6 +300,10 @@ async def news_next_handler(callback: CallbackQuery, session: AsyncSession):
     ).scalars().first()
 
     if next_news:
+        try:
+            await callback.message.delete()
+        except:
+            pass
         await render_news_card(callback, session, next_news.id)
     else:
         await callback.answer("Это последняя новость")

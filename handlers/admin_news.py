@@ -32,7 +32,7 @@ admin_news_router.message.filter(or_f(IsSuperAdmin(), IsEditor()))
 
 # --- FSM ---
 class AddNewsFSM(StatesGroup):
-    name = State()
+    title = State()
     description = State()
     img = State()
     notify = State()
@@ -75,13 +75,13 @@ async def admin_events_menu(callback: CallbackQuery):
 @admin_news_router.callback_query(F.data == "add_news")
 async def add_news_start(callback: CallbackQuery, state: FSMContext):
     logger.info("Admin %s started adding news", callback.from_user.id)
-    await state.set_state(AddNewsFSM.name)
+    await state.set_state(AddNewsFSM.title)
     await callback.message.answer("Введите название новости:")
 
 
-@admin_news_router.message(AddNewsFSM.name)
-async def add_news_name(message: Message, state: FSMContext):
-    await state.update_data(name=message.text)
+@admin_news_router.message(AddNewsFSM.title)
+async def add_news_title(message: Message, state: FSMContext):
+    await state.update_data(title=message.text)
     logger.debug("News title set: %s", message.text)
     await state.set_state(AddNewsFSM.description)
     await message.answer("Введите описание новости:")
@@ -102,7 +102,7 @@ async def add_news_img(message: Message, state: FSMContext, session: AsyncSessio
     data = await state.get_data()
 
     await orm_add_news(session, data)
-    logger.info("News added: %s", data["name"])
+    logger.info("News added: %s", data["title"])
 
     await state.set_state(AddNewsFSM.notify)
     await message.answer("✅ Новость добавлена! Хотите оповестить пользователей? (Да/нет)")
@@ -114,12 +114,12 @@ async def add_news_announce(message: Message, state: FSMContext, session: AsyncS
     data = await state.get_data()
 
     if notify:
-        text = f"📰 Новая новость!\n\n<b>{data['name']}</b>\n\n{data['description'][:300]}..."
+        text = f"📰 Новая новость!\n\n<b>{data['title']}</b>\n\n{data['description'][:300]}..."
         await notify_subscribers(bot, session, f"📰 Обновление в новостях!\n\n{text}", data["img"], type_="news")
-        logger.info("News notification sent for: %s", data["name"])
+        logger.info("News notification sent for: %s", data["title"])
         await message.answer("👍 Уведомление пользователям успешно отправлено", reply_markup=get_admin_news_kb())
     else:
-        logger.info("News added without notification: %s", data["name"])
+        logger.info("News added without notification: %s", data["title"])
         await message.answer("👍 Новость добавлена без оповещения пользователей", reply_markup=get_admin_news_kb())
 
     await state.clear()
@@ -146,9 +146,10 @@ async def edit_news_choose(callback: CallbackQuery, state: FSMContext):
     logger.info("Admin %s chose news %d for editing", callback.from_user.id, news_id)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Название", callback_data="field_name")],
+        [InlineKeyboardButton(text="Название", callback_data="field_title")],
         [InlineKeyboardButton(text="Описание", callback_data="field_description")],
         [InlineKeyboardButton(text="Изображение", callback_data="field_img")],
+        [InlineKeyboardButton(text="Автоматическое изменение новости(да/нет)", callback_data="field_lock_changes")]
     ])
     await state.set_state(EditNewsFSM.field)
     await callback.message.answer("Выберите поле для изменения:", reply_markup=kb)
@@ -160,13 +161,16 @@ async def edit_news_field(callback: CallbackQuery, state: FSMContext):
     await state.update_data(field=field)
     logger.debug("Editing field chosen: %s", field)
     await state.set_state(EditNewsFSM.value)
-    await callback.message.answer(f"Введите новое значение для поля {field}:")
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n{"Введите - чтобы вернуть изначальное значение названия" if field=='title' else ''}")
 
 
 @admin_news_router.message(EditNewsFSM.value)
 async def edit_news_value(message: Message, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    await orm_update_news(session, data["id"], {data["field"]: message.text})
+    value = message.text
+    if message.text == "-":
+        value = ''
+    await orm_update_news(session, data["id"], {data["field"]: value})
     logger.info("News %d updated: %s = %s", data["id"], data["field"], message.text[:30])
     await state.clear()
     await message.answer("✅ Новость изменена!", reply_markup=get_admin_news_kb())
@@ -230,8 +234,9 @@ async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession
 
         news = await orm_query.orm_get_news_by_name(session, name)
         if news:
-            await orm_update_news(session, news.id, {"description": description, "img": img})
-            updated += 1
+            if news.lock_changes:
+                await orm_update_news(session, news.id, {"description": description, "img": img})
+                updated += 1
         else:
             await orm_add_news(session, {"name": name, "description": description, "img": img})
             added += 1

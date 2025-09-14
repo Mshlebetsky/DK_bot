@@ -62,7 +62,6 @@ def get_admin_events_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="➕ Добавить событие", callback_data="add_event")],
         [InlineKeyboardButton(text="✏️ Изменить событие", callback_data="edit_event")],
         [InlineKeyboardButton(text="🗑 Удалить событие", callback_data="delete_event")],
-        [InlineKeyboardButton(text="📋 Список событий", callback_data="list_events")],
         [InlineKeyboardButton(text="🔄 Обновить все события", callback_data="update_all_events")],
         [InlineKeyboardButton(text="🛠 В панель администратора", callback_data="admin_panel")],
     ]
@@ -209,12 +208,13 @@ async def edit_event_choose(callback: CallbackQuery, state: FSMContext) -> None:
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="Название", callback_data="field_name")],
+            [InlineKeyboardButton(text="Название", callback_data="field_title")],
             [InlineKeyboardButton(text="Мероприятие бесплатное? (да/нет)", callback_data="field_is_free")],
             [InlineKeyboardButton(text="Дата", callback_data="field_date")],
             [InlineKeyboardButton(text="Описание", callback_data="field_description")],
             [InlineKeyboardButton(text="Ссылка", callback_data="field_link")],
             [InlineKeyboardButton(text="Изображение", callback_data="field_img")],
+            [InlineKeyboardButton(text="Автоматическое изменение события(да/нет)", callback_data="field_lock_changes")]
         ]
     )
     await state.set_state(EditEventFSM.field)
@@ -227,7 +227,7 @@ async def edit_event_field(callback: CallbackQuery, state: FSMContext) -> None:
     field = callback.data.replace("field_", "")
     await state.update_data(field=field)
     await state.set_state(EditEventFSM.value)
-    await callback.message.answer(f"Введите новое значение для поля {field}:")
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n{"Введите - чтобы вернуть изначальное значение названия" if field=='title' else ''}")
     logger.debug(f"Редактируется поле события: {field}")
 
 
@@ -235,7 +235,8 @@ async def edit_event_field(callback: CallbackQuery, state: FSMContext) -> None:
 async def edit_event_value(message: Message, state: FSMContext, session: AsyncSession) -> None:
     data = await state.get_data()
     field, value = data["field"], message.text
-
+    if message.text == "-":
+        value = ''
     if field == "date":
         try:
             value = datetime.strptime(value, "%Y-%m-%d %H:%M")
@@ -243,6 +244,8 @@ async def edit_event_value(message: Message, state: FSMContext, session: AsyncSe
             await message.answer("❌ Формат даты: 2025-08-21 18:30")
             return
     if field == "is_free":
+        value = value.lower() in ["да", "yes", 1]
+    if field == "lock_changes":
         value = value.lower() in ["да", "yes", 1]
 
     await orm_update_event(session, data["id"], {field: value})
@@ -318,15 +321,16 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
 
         event = await orm_query.orm_get_event_by_name(session, name)
         if event:
-            await orm_update_event(session, event.id, {
-                "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
-                "description": description,
-                "age_limits": age_limits,
-                "img": img,
-                "link": link,
-                "is_free": is_free
-            })
-            updated += 1
+            if event.lock_changes:
+                await orm_update_event(session, event.id, {
+                    "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
+                    "description": description,
+                    "age_limits": age_limits,
+                    "img": img,
+                    "link": link,
+                    "is_free": is_free
+                })
+                updated += 1
         else:
             await orm_add_event(session, {
                 "name": name,

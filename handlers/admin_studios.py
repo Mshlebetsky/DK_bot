@@ -57,7 +57,6 @@ def get_admin_studios_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="➕ Добавить студию", callback_data="add_studio")],
         [InlineKeyboardButton(text="✏️ Изменить студию", callback_data="edit_studio")],
         [InlineKeyboardButton(text="🗑 Удалить студию", callback_data="delete_studio")],
-        [InlineKeyboardButton(text="📋 Список студий", callback_data="list_studios")],
         [InlineKeyboardButton(text="🔄 Обновить все студии", callback_data="update_all_studios")],
         [InlineKeyboardButton(text="🛠 В панель администратора", callback_data="admin_panel")],
     ]
@@ -87,8 +86,8 @@ async def add_studio_start(callback: CallbackQuery, state: FSMContext):
 
 
 @admin_studios_router.message(AddStudioFSM.name)
-async def add_studio_name(message: Message, state: FSMContext):
-    await state.update_data(name=message.text)
+async def add_studio_title(message: Message, state: FSMContext):
+    await state.update_data(title=message.text)
     logger.debug("Название студии: %s", message.text)
     await state.set_state(AddStudioFSM.description)
     await message.answer("Введите описание студии:")
@@ -158,7 +157,7 @@ async def add_studio_img(message: Message, state: FSMContext, session: AsyncSess
 
     try:
         await orm_add_studio(session, data)
-        logger.info("Студия добавлена: %s", data.get("name"))
+        logger.info("Студия добавлена: %s", data.get("title"))
         await message.answer("✅ Студия успешно добавлена!", reply_markup=get_admin_studios_kb())
     except Exception as e:
         logger.exception("Ошибка при добавлении студии: %s", e)
@@ -196,7 +195,7 @@ async def edit_studio_choose(callback: CallbackQuery, state: FSMContext):
         inline_keyboard=[
             [InlineKeyboardButton(text=label, callback_data=f"field_{field}")]
             for label, field in [
-                ("Название", "name"),
+                ("Название", "title"),
                 ("Описание", "description"),
                 ("Преподаватель", "teacher"),
                 ("Стоимость", "cost"),
@@ -204,6 +203,8 @@ async def edit_studio_choose(callback: CallbackQuery, state: FSMContext):
                 ("Категория", "category"),
                 ("QR", "qr_img"),
                 ("Изображение", "img"),
+                ("Автоматическое изменение события(да/нет", "lock_changes")
+
             ]
         ]
     )
@@ -216,7 +217,7 @@ async def edit_studio_field(callback: CallbackQuery, state: FSMContext):
     await state.update_data(field=field)
     await state.set_state(EditStudioFSM.value)
     logger.debug("Выбранное поле для редактирования: %s", field)
-    await callback.message.answer(f"Введите новое значение для поля {field}:")
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n{"Введите - чтобы вернуть изначальное значение названия" if field=='title' else ''}")
 
 
 @admin_studios_router.message(EditStudioFSM.value)
@@ -224,6 +225,11 @@ async def edit_studio_value(message: Message, state: FSMContext, session: AsyncS
     data = await state.get_data()
     field, value, studio_id = data["field"], message.text, data["id"]
 
+
+    if message.text == "-":
+        value = ''
+    if field == "lock_changes":
+        value = value.lower() in ["да", "yes", 1]
     if field == "cost":
         try:
             value = int(value)
@@ -277,7 +283,7 @@ async def delete_studio_confirm(callback: CallbackQuery, session: AsyncSession):
 @admin_studios_router.callback_query(F.data == "update_all_studios")
 async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSession):
     logger.info("Запуск обновления всех студий (user_id=%s)", callback.from_user.id)
-    await callback.message.answer("🔄 Обновление студий... (~3 минуты)")
+    await callback.message.answer("🔄 Обновление студий... (~4 минуты)")
 
     try:
         data, log_text = await asyncio.to_thread(update_all_studios)
@@ -298,15 +304,16 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
         try:
             studio = await orm_get_studio_by_name(session, name)
             if studio:
-                await orm_update_studio(session, studio.id, "description", description)
-                await orm_update_studio(session, studio.id, "cost", int(cost))
-                await orm_update_studio(session, studio.id, "age", age)
-                await orm_update_studio(session, studio.id, "img", img)
-                await orm_update_studio(session, studio.id, "qr_img", qr_img)
-                await orm_update_studio(session, studio.id, "teacher", teacher)
-                await orm_update_studio(session, studio.id, "category", category)
-                updated += 1
-                logger.debug("Обновлена студия %s", name)
+                if (studio.lock_changes == False):
+                    await orm_update_studio(session, studio.id, "description", description)
+                    await orm_update_studio(session, studio.id, "cost", int(cost))
+                    await orm_update_studio(session, studio.id, "age", age)
+                    await orm_update_studio(session, studio.id, "img", img)
+                    await orm_update_studio(session, studio.id, "qr_img", qr_img)
+                    await orm_update_studio(session, studio.id, "teacher", teacher)
+                    await orm_update_studio(session, studio.id, "category", category)
+                    updated += 1
+                    logger.debug("Обновлена студия %s", name)
             else:
                 new_data = {
                     "name": name,

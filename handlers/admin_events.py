@@ -227,7 +227,7 @@ async def edit_event_field(callback: CallbackQuery, state: FSMContext) -> None:
     field = callback.data.replace("field_", "")
     await state.update_data(field=field)
     await state.set_state(EditEventFSM.value)
-    await callback.message.answer(f"Введите новое значение для поля {field}:\n{"Введите - чтобы вернуть изначальное значение названия" if field=='title' else ''}")
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n{'Введите - чтобы вернуть изначальное значение названия' if field=='title' else ''}")
     logger.debug(f"Редактируется поле события: {field}")
 
 

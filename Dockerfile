@@ -66,7 +66,8 @@ COPY . .
 # ==========================
 RUN useradd -ms /bin/bash appuser \
     && mkdir -p /app/data /app/logs \
-    && chown -R appuser:appuser /app
+    && chown -R appuser:appuser /app /app/data /app/logs
+
 USER appuser
 
 # ==========================

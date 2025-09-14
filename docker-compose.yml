@@ -9,7 +9,6 @@ services:
     env_file:
       - .env
     volumes:
-      - ./data:/app/data
       - ./logs:/app/logs
       - yauza_db:/app/data
     networks:

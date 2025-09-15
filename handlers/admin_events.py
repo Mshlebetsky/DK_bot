@@ -11,7 +11,6 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.filters import or_f, Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from pyexpat.errors import messages
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import orm_query
@@ -20,7 +19,7 @@ from database.orm_query import (
     orm_update_event,
     orm_delete_event,
     orm_get_events,
-    orm_get_event_by_name,
+    orm_get_event_by_name, orm_get_event,
 )
 from logic.scrap_events import update_all_events, find_age_limits
 from handlers.notification import notify_subscribers
@@ -96,7 +95,7 @@ async def add_event_name(message: Message, state: FSMContext) -> None:
 
 @admin_events_router.message(AddEventFSM.is_free)
 async def add_event_is_free(message: Message, state: FSMContext) -> None:
-    is_free = message.text.lower() in ["yes", "да", "1"]
+    is_free = message.text.lower() in ["yes", "да", "1","True"]
     await state.update_data(is_free=is_free)
     await state.set_state(AddEventFSM.date)
     await message.answer(
@@ -164,7 +163,7 @@ async def add_event_notify(
     session: AsyncSession,
     bot: Bot,
 ) -> None:
-    notify = message.text.lower() in {"yes", "да", "1"}
+    notify = message.text.lower() in {"yes", "да", "1","True"}
     data = await state.get_data()
 
     if notify:
@@ -214,7 +213,7 @@ async def edit_event_choose(callback: CallbackQuery, state: FSMContext) -> None:
             [InlineKeyboardButton(text="Описание", callback_data="field_description")],
             [InlineKeyboardButton(text="Ссылка", callback_data="field_link")],
             [InlineKeyboardButton(text="Изображение", callback_data="field_img")],
-            [InlineKeyboardButton(text="Автоматическое изменение события(да/нет)", callback_data="field_lock_changes")]
+            [InlineKeyboardButton(text="Запретить автоматическое изменение события(да/нет)", callback_data="field_lock_changes")]
         ]
     )
     await state.set_state(EditEventFSM.field)
@@ -223,11 +222,24 @@ async def edit_event_choose(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @admin_events_router.callback_query(F.data.startswith("field_"), EditEventFSM.field)
-async def edit_event_field(callback: CallbackQuery, state: FSMContext) -> None:
+async def edit_event_field(callback: CallbackQuery, state: FSMContext, session: AsyncSession) -> None:
     field = callback.data.replace("field_", "")
     await state.update_data(field=field)
     await state.set_state(EditEventFSM.value)
-    await callback.message.answer(f"Введите новое значение для поля {field}:\n{'Введите - чтобы вернуть изначальное значение названия' if field=='title' else ''}")
+    data = await state.get_data()
+    event = await orm_get_event(session, data["id"])
+    if field != 'title':
+        current_value = getattr(event, field, None)
+    else:
+        if event.title == '':
+            current_value = getattr(event, 'name', None)
+        else:
+            current_value = getattr(event, 'title', None)
+
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n"
+                                  f"{'Введите - чтобы вернуть изначальное значение названия' if field=='title' else ''}"
+                                  f"\nЗначение сейчас:")
+    await callback.message.answer(f"{current_value}")
     logger.debug(f"Редактируется поле события: {field}")
 
 
@@ -244,9 +256,9 @@ async def edit_event_value(message: Message, state: FSMContext, session: AsyncSe
             await message.answer("❌ Формат даты: 2025-08-21 18:30")
             return
     if field == "is_free":
-        value = value.lower() in ["да", "yes", 1]
+        value = value.lower() in ["да", "yes", 1,"True"]
     if field == "lock_changes":
-        value = value.lower() in ["да", "yes", 1]
+        value = value.lower() in ["да", "yes", 1,"True"]
 
     await orm_update_event(session, data["id"], {field: value})
     await state.clear()
@@ -321,7 +333,7 @@ async def update_all_events_handler(callback: CallbackQuery, session: AsyncSessi
 
         event = await orm_query.orm_get_event_by_name(session, name)
         if event:
-            if event.lock_changes:
+            if event.lock_changes == False:
                 await orm_update_event(session, event.id, {
                     "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
                     "description": description,

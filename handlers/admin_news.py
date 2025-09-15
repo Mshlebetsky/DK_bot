@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from dataclasses import field
 
 from aiogram import Router, F, types, Bot
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import orm_query
 from database.orm_query import (
     orm_add_news, orm_update_news, orm_delete_news,
-    orm_get_all_news
+    orm_get_all_news, orm_get_news
 )
 from handlers.notification import notify_subscribers
 from logic.scrap_news import update_all_news
@@ -149,31 +150,55 @@ async def edit_news_choose(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="Название", callback_data="field_title")],
         [InlineKeyboardButton(text="Описание", callback_data="field_description")],
         [InlineKeyboardButton(text="Изображение", callback_data="field_img")],
-        [InlineKeyboardButton(text="Автоматическое изменение новости(да/нет)", callback_data="field_lock_changes")]
+        [InlineKeyboardButton(text="Запретить автоматическое изменение новости(да/нет)", callback_data="field_lock_changes")]
     ])
     await state.set_state(EditNewsFSM.field)
     await callback.message.answer("Выберите поле для изменения:", reply_markup=kb)
 
 
 @admin_news_router.callback_query(F.data.startswith("field_"), EditNewsFSM.field)
-async def edit_news_field(callback: CallbackQuery, state: FSMContext):
+async def edit_news_field(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     field = callback.data.replace("field_", "")
     await state.update_data(field=field)
-    logger.debug("Editing field chosen: %s", field)
     await state.set_state(EditNewsFSM.value)
-    await callback.message.answer(f"Введите новое значение для поля {field}:\n{'Введите - чтобы вернуть изначальное значение названия' if field=='title' else ''}")
+
+    data = await state.get_data()
+    news = await orm_get_news(session, data["id"])
+    if field != 'title':
+        current_value = getattr(news, field, None)
+    else:
+        if news.title == '':
+            current_value = getattr(news, 'name', None)
+        else:
+            current_value = getattr(news, 'title', None)
+
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n"
+                                  f"{'Введите - чтобы вернуть изначальное значение названия' if field == 'title' else ''}"
+                                  f"\nЗначение сейчас:")
+    await callback.message.answer(f"{current_value}")
+    logger.debug("Выбранное поле для редактирования: %s", field)
 
 
 @admin_news_router.message(EditNewsFSM.value)
 async def edit_news_value(message: Message, state: FSMContext, session: AsyncSession):
     data = await state.get_data()
-    value = message.text
+    field, value, news_id = data["field"], message.text, data["id"]
+
+
     if message.text == "-":
         value = ''
-    await orm_update_news(session, data["id"], {data["field"]: value})
-    logger.info("News %d updated: %s = %s", data["id"], data["field"], message.text[:30])
-    await state.clear()
-    await message.answer("✅ Новость изменена!", reply_markup=get_admin_news_kb())
+    if field == "lock_changes":
+        value = value.lower() in ["да", "yes", 1, "True"]
+
+    try:
+        await orm_update_news(session, news_id, {field: value})
+        logger.info("Обновлено поле %s у новости id=%s", field, news_id)
+        await message.answer("✅ Новость успешно изменена!", reply_markup=get_admin_news_kb())
+    except Exception as e:
+        logger.exception("Ошибка при обновлении студии id=%s: %s", news_id, e)
+        await message.answer("❌ Ошибка при обновлении студии.")
+    finally:
+        await state.clear()
 
 
 # --- Delete News ---
@@ -234,7 +259,7 @@ async def update_all_news_handler(callback: CallbackQuery, session: AsyncSession
 
         news = await orm_query.orm_get_news_by_name(session, name)
         if news:
-            if news.lock_changes:
+            if news.lock_changes == False:
                 await orm_update_news(session, news.id, {"description": description, "img": img})
                 updated += 1
         else:

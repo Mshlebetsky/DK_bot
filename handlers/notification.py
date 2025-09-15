@@ -165,9 +165,9 @@ async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | N
 # ---------- Напоминания о мероприятиях ----------
 async def send_event_reminders(bot, session):
     now = datetime.now().date()
-    two_days = now + timedelta(days=14)
+    two_days = now + timedelta(days=2)
 
-    # выбираем события на ближайшие 2 недели
+    # выбираем события на ближайшие 2 дня
     result = await session.execute(
         select(Events).where(Events.date.between(now, two_days))
     )
@@ -214,7 +214,8 @@ async def send_event_reminders(bot, session):
                 if event.img:
                     try:
                         await bot.send_photo(user_id, event.img, caption=text, parse_mode="HTML",reply_markup=InlineKeyboardMarkup(
-                            inline_keyboard=[[InlineKeyboardButton(text="📆Афиша мероприятий", callback_data="list_events")]]))
+                            inline_keyboard=[[InlineKeyboardButton(text="📆Афиша мероприятий",
+                                                                   callback_data=f"event_card:{event.id}:{1}:{str(event.is_free)}")]]))
                     except Exception:
                         await bot.send_message(user_id, text, parse_mode="HTML")
                 else:

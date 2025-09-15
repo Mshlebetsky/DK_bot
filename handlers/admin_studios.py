@@ -12,7 +12,7 @@ from database.orm_query import (
     orm_update_studio,
     orm_delete_studio,
     orm_get_studios,
-    orm_get_studio_by_name,
+    orm_get_studio_by_name, orm_get_studio,
 )
 from logic.scrap_studios import update_all_studios
 from filter.filter import IsSuperAdmin, IsEditor
@@ -203,7 +203,7 @@ async def edit_studio_choose(callback: CallbackQuery, state: FSMContext):
                 ("Категория", "category"),
                 ("QR", "qr_img"),
                 ("Изображение", "img"),
-                ("Автоматическое изменение события(да/нет", "lock_changes")
+                ("Запретить автоматическое изменение студии(да/нет", "lock_changes")
 
             ]
         ]
@@ -212,12 +212,26 @@ async def edit_studio_choose(callback: CallbackQuery, state: FSMContext):
 
 
 @admin_studios_router.callback_query(F.data.startswith("field_"), EditStudioFSM.field)
-async def edit_studio_field(callback: CallbackQuery, state: FSMContext):
+async def edit_studio_field(callback: CallbackQuery, state: FSMContext, session: AsyncSession):
     field = callback.data.replace("field_", "")
     await state.update_data(field=field)
     await state.set_state(EditStudioFSM.value)
+
+    data = await state.get_data()
+    event = await orm_get_studio(session, data["id"])
+    if field != 'title':
+        current_value = getattr(event, field, None)
+    else:
+        if event.title == '':
+            current_value = getattr(event, 'name', None)
+        else:
+            current_value = getattr(event, 'title', None)
+
+    await callback.message.answer(f"Введите новое значение для поля {field}:\n"
+                                  f"{'Введите - чтобы вернуть изначальное значение названия' if field == 'title' else ''}"
+                                  f"\nЗначение сейчас:")
+    await callback.message.answer(f"{current_value}")
     logger.debug("Выбранное поле для редактирования: %s", field)
-    await callback.message.answer(f"Введите новое значение для поля {field}:\n{'Введите - чтобы вернуть изначальное значение названия' if field=='title' else ''}")
 
 
 @admin_studios_router.message(EditStudioFSM.value)
@@ -229,7 +243,7 @@ async def edit_studio_value(message: Message, state: FSMContext, session: AsyncS
     if message.text == "-":
         value = ''
     if field == "lock_changes":
-        value = value.lower() in ["да", "yes", 1]
+        value = value.lower() in ["да", "yes", 1, "True"]
     if field == "cost":
         try:
             value = int(value)

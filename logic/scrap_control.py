@@ -36,7 +36,7 @@ async def update_events(session, notify_users=False, bot=None):
 
         event = await orm_query.orm_get_event_by_name(session, name)
         if event:
-            if event.lock_changes == "False":
+            if event.lock_changes == False:
                 await orm_update_event(session, event.id, {
                     "date": datetime.strptime(event_date, "%Y-%m-%d %H:%M"),
                     "description": description,
@@ -88,7 +88,7 @@ async def update_news(session, notify_users=False, bot=None):
 
         news = await orm_query.orm_get_news_by_name(session, name)
         if news:
-            if news.lock_changes == "False":
+            if news.lock_changes == False:
                 await orm_update_news(session, news.id, {"description": description, "img": img})
                 updated += 1
         else:
@@ -123,7 +123,7 @@ async def update_studios(session):
 
         studio = await orm_get_studio_by_name(session, name)
         if studio:
-            if studio.lock_changes == "False":
+            if studio.lock_changes == False:
                 logger.info(f"Начато изменение студии {name}")
                 await orm_update_studio(session, studio.id, "description", description)
                 await orm_update_studio(session, studio.id, "cost", int(cost))

@@ -112,7 +112,7 @@ def update_all_studios():
     body.send_keys(Keys.ESCAPE)
     time.sleep(2)
     try:
-        for category in categories[1:-1]:
+        for category in categories[1:]:
             try:
                 time.sleep(2)
                 category.click()

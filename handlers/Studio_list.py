@@ -75,7 +75,7 @@ async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
     # список кнопок
     keyboard = [
         [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {Big_litter_start(studio.name if studio.title == '' else studio.title)}",
+            text=f"{'🆓' if studio.cost == 0 else '💳'} {(Big_litter_start(studio.name) if studio.title == '' else studio.title)}",
             callback_data=f"studio_card:{studio.id}:{page}_{callback.data}"
         )] for studio in studios
     ]

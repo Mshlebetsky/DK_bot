@@ -45,7 +45,7 @@ def get_all_news_keyboard(news: list[News], page: int, total_pages: int) -> Inli
     """Клавиатура для списка новостей"""
     keyboard = [
         [InlineKeyboardButton(
-            text=Big_litter_start(n.name[:40]  if n.title == '' else n.title[:40]),
+            text=(Big_litter_start(n.name[:40])  if n.title == '' else n.title[:40]),
             callback_data=f"news_card:{n.id}"
         )]
         for n in news

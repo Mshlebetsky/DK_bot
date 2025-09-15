@@ -74,7 +74,7 @@ def get_events_keyboard(events: Sequence[Events], page: int, total_pages: int, i
     """Формирует клавиатуру для списка событий."""
     keyboard = [
         [InlineKeyboardButton(
-            text=f"🗓 {ev.date:%d.%m} | {capitalize_title_safe(ev.name[:30] if ev.title == '' else ev.title[:30])} | {ev.age_limits}+",
+            text=f"🗓 {ev.date:%d.%m} | {capitalize_title_safe(ev.name[:30]) if ev.title == '' else ev.title[:30]} | {ev.age_limits}+",
             callback_data=f"event_card:{ev.id}:{page}:{int(is_free)}"
         )]
         for ev in events

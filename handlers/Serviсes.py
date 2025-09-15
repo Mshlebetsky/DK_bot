@@ -29,7 +29,7 @@ def get_services_keyboard() -> InlineKeyboardMarkup:
             text="Обратная связь",
             url="https://forms.mkrf.ru/e/2579/xTPLeBU7/?ap_orgcode=640160132"
         )],
-        [InlineKeyboardButton(text="Расписание кружков (студий)", url="https://дк-яуза.рф/upload/rasp.docx")],
+        [InlineKeyboardButton(text="🗓Расписание)", url="https://дк-яуза.рф/upload/rasp.docx")],
         [InlineKeyboardButton(text="🏠 В Главное меню", callback_data="main_menu")]
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)

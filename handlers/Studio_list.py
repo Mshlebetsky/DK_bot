@@ -146,6 +146,8 @@ async def render_studio_card(callback: CallbackQuery, studio, session: AsyncSess
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"{data[0]}")],
+        [InlineKeyboardButton(text="🗓 Расписание", url="https://дк-яуза.рф/upload/rasp.docx")],
+        [InlineKeyboardButton(text="🖍 Записаться в кружок", url="https://dk.mosreg.ru/")],
         [InlineKeyboardButton(text="ℹ Подробнее", callback_data=f"std_dl:{studio.id}:{data[0]}")]
     ])
 

@@ -72,9 +72,22 @@ def get_admin_events_kb() -> InlineKeyboardMarkup:
 @admin_events_router.callback_query(F.data == "edit_events_panel")
 async def show_admin_events_menu(event: types.Message | CallbackQuery) -> None:
     """Показывает меню управления событиями."""
-    target = event.message if isinstance(event, CallbackQuery) else event
-    await target.edit_text("Меню управления событиями:", reply_markup=get_admin_events_kb())
+    text = "Меню управления событиями:"
+    kb = get_admin_events_kb()
+
+    if isinstance(event, CallbackQuery):
+        try:
+            # пробуем отредактировать сообщение, если оно наше
+            await event.message.edit_text(text, reply_markup=kb)
+        except Exception:
+            # fallback: если не удалось, отправляем новое
+            await event.message.answer(text, reply_markup=kb)
+    elif isinstance(event, types.Message):
+        # если это обычная команда — всегда отправляем новое сообщение
+        await event.answer(text, reply_markup=kb)
+
     logger.info(f"Переход в меню управления афиши (user_id={event.from_user.id})")
+
 
 
 # ================== ДОБАВЛЕНИЕ СОБЫТИЯ ==================

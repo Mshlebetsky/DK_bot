@@ -94,7 +94,7 @@ async def build_subscriptions_text(session, user_id: int) -> str:
 
 
 # ---------- Сообщение (через кнопку) ----------
-@notificate_router.message(Command('notifications'))
+@notificate_router.message(Command('subscriptions'))
 async def show_subscriptions(message: types.Message, session: AsyncSession):
     user = await orm_get_user(session, message.from_user.id)
     text = await build_subscriptions_text(session, message.from_user.id)
@@ -215,7 +215,7 @@ async def send_event_reminders(bot, session):
                     try:
                         await bot.send_photo(user_id, event.img, caption=text, parse_mode="HTML",reply_markup=InlineKeyboardMarkup(
                             inline_keyboard=[[InlineKeyboardButton(text="📆Афиша мероприятий",
-                                                                   callback_data=f"event_card:{event.id}:{1}:{str(event.is_free)}")]]))
+                                                                   callback_data=f"event_card:{event.id}:{1}:{int(event.is_free)}")]]))
                     except Exception:
                         await bot.send_message(user_id, text, parse_mode="HTML")
                 else:

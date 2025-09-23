@@ -4,6 +4,18 @@ import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import undetected_chromedriver as uc
+import re
+
+def extract_numbers(text: str) -> list[int]:
+    """
+    Извлекает все целые числа из строки.
+    Возвращает список int.
+    """
+    # \d+ — одна или несколько цифр
+    numbers = re.findall(r'\d+', str(text))
+    # конвертируем в int
+    return [int(num) for num in numbers] if numbers else []
+
 
 def update_all_studios():
     url = "https://дк-яуза.рф/studii/"
@@ -100,9 +112,14 @@ def update_all_studios():
         category = 'unknown'
 
         time.sleep(0.5)
-
+        temp_list = extract_numbers(str(cost))
+        if len(temp_list) > 1:
+            second_cost = temp_list[1]
+        else:
+            second_cost = None
+        cost = temp_list[0]
         try:
-            studio_info = [description,cost,age,img,qr_img,teacher, category]
+            studio_info = [description,cost,second_cost, age,img,qr_img,teacher, category]
             data[title] = studio_info
         except:
             error_counter +=1

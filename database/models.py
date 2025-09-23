@@ -79,6 +79,7 @@ class Studios(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     teacher: Mapped[str | None] = mapped_column(String, nullable=True)
     cost: Mapped[int] = mapped_column(Integer, nullable=False)
+    second_cost: Mapped[str] = mapped_column(Text, nullable=True, default=None)
     age: Mapped[str] = mapped_column(String, nullable=False)
     category: Mapped[str] = mapped_column(Text, nullable=False)
     qr_img: Mapped[str | None] = mapped_column(Text, nullable=True)

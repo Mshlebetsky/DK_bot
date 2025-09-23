@@ -1,9 +1,11 @@
 import hashlib
 import logging
+import re
 
 from aiogram import Router, F, types, Bot
 from aiogram.filters import Command
 from aiogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
+from aiogram.utils.callback_answer import CallbackAnswer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -25,6 +27,11 @@ CATEGORY_MAP: dict[str, str] = {}
 
 def short_code(text: str) -> str:
     return hashlib.md5(text.encode()).hexdigest()[:6]
+
+
+def sort_key(studio):
+    name = studio.title if studio.title else studio.name
+    return re.sub(r"[\"'«»‘’]", "", name).lower()
 
 
 # --------- Рендеры списка/краткой и подробной карточек студий
@@ -51,6 +58,9 @@ async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
         query = query.where(Studios.category == category)
 
 
+    #Сортировка
+    query = query.order_by(func.coalesce(Studios.title, Studios.name))
+
     studios = (await session.execute(query.offset(offset).limit(STUDIOS_PER_PAGE))).scalars().all()
 
     total_query = select(func.count(Studios.id)).where(cost_filter)
@@ -72,12 +82,16 @@ async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
     if category:
         text += f"Категория: {category.capitalize()}\n\n"
 
-    # список кнопок
+    # сортируем список студий по отображаемому названию
+    sorted_studios = sorted(studios, key=sort_key)
+
     keyboard = [
         [InlineKeyboardButton(
-            text=f"{'🆓' if studio.cost == 0 else '💳'} {(Big_litter_start(studio.name) if studio.title == '' else studio.title)}",
+            text=f"{'🆓' if studio.cost == 0 else '💳'} "
+                 f"{Big_litter_start(studio.name) if studio.title == '' else studio.title}",
             callback_data=f"studio_card:{studio.id}:{page}_{callback.data}"
-        )] for studio in studios
+        )]
+        for studio in sorted_studios
     ]
 
     # пагинация
@@ -135,15 +149,16 @@ async def render_studio_card(callback: CallbackQuery, studio, session: AsyncSess
             description) > 350 else "")
 
     text = f"<b>{studio.name if studio.title == '' else studio.title}</b>\n\n{short_desc}"
+    second_cost = f"👥Групповое: {studio.second_cost} руб.'\n"
     text = (
         f"<b>{studio.name if studio.title == '' else studio.title}</b>\n\n"
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
-        f"💰 Стоимость: {studio.cost} руб.\n"
+        f"💰 Стоимость: {studio.cost} руб.\n{'' if (studio.second_cost == None) else second_cost}"
         f"🎂 Возраст: {studio.age}\n"
         f"🏷 Категория: {studio.category if studio.category != 'unknown' else 'Другое'}\n"
         f"ℹ️ {short_desc or 'Нет описания'}"
     )
-
+#studio_card:{studio.id}:{query}
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад", callback_data=f"{data[0]}")],
         [InlineKeyboardButton(text="🗓 Расписание", url="https://дк-яуза.рф/upload/rasp.docx")],
@@ -164,24 +179,30 @@ async def render_studio_card(callback: CallbackQuery, studio, session: AsyncSess
 
 async def render_studio_detail(callback: CallbackQuery, session: AsyncSession, studio, query):
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"{query}")],
+        [InlineKeyboardButton(text="🔙 Назад", callback_data=f"studio_card:{studio.id}:{query}")],
         [InlineKeyboardButton(text="🔗 Перейти на сайт", url="https://дк-яуза.рф/studii/")],
         [InlineKeyboardButton(text="🗓 Расписание", url="https://дк-яуза.рф/upload/rasp.docx")],
+        [InlineKeyboardButton(text="🖼 QR", callback_data=f"qr:{studio.id}:{query}")],
         [InlineKeyboardButton(text="🖍 Записаться в кружок", url="https://dk.mosreg.ru/")]
     ])
 
+    second_cost = f"👥Групповое: {studio.second_cost} руб.'\n"
     text = (
         f"<b>{studio.name if studio.title == '' else studio.title}</b>\n\n"
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
-        f"💰 Стоимость: {studio.cost} руб.\n"
+        f"💰 Стоимость: {studio.cost} руб.\n{'' if (studio.second_cost == None) else second_cost}"
         f"🎂 Возраст: {studio.age}\n"
-        f"🏷 Категория: {studio.category}\n"
+        f"🏷 Категория: {studio.category if studio.category != 'unknown' else 'Другое'}\n"
         f"ℹ️ {studio.description or 'Нет описания'}"
     )
 
     await callback.message.answer(text, reply_markup= kb)
 
 
+# @studios_router.callback_query(F.data == "studios")
+# async def studios_callback(callback: CallbackQuery):
+#     # передаём message (не сам callback), чтобы start_fsm_studios использовал метод answer/edit_text
+#     await start_studios(callback.message)
 
 # -----------Обработчики ---------------------
 
@@ -272,19 +293,18 @@ async def std_p(callback: CallbackQuery, session: AsyncSession, bot: Bot):
 
 @studios_router.callback_query(F.data.startswith("studio_card:"))
 async def studio_card(callback: CallbackQuery, session: AsyncSession, bot: Bot):
-    # await callback.message.answer(callback.data)
+
+    logger.info(callback.data)
     card, back_mark = callback.data.split('std_list_')
-    studio_id, page = card.split(":")[1:3]
-    page = page.split("_")[0]
+    studio_id = card.split(":")[1]
 
     studio = await orm_get_studio(session, int(studio_id))
-    msg_id = callback.message.message_id
     back_mark = f"std_list_{back_mark}"
-    data = [back_mark,page,msg_id]
+    data = [back_mark]
 
     await render_studio_card(callback,studio, session, data)
 
-
+#studio_card:id_ page_callback_data
 @studios_router.callback_query(F.data.startswith("std_dl:"))
 async def studio_detail(callback: CallbackQuery, session: AsyncSession):
     studio_id = int(callback.data.split(":")[1])
@@ -299,3 +319,19 @@ async def studio_detail(callback: CallbackQuery, session: AsyncSession):
         await callback.message.delete()
     except:
         pass
+
+
+@studios_router.callback_query(F.data.startswith("qr:"))
+async def studio_qr(callback: CallbackQuery, session: AsyncSession):
+    studio_id = int(callback.data.split(":")[1])
+    query = callback.data.split(":")[-1]
+    studio = await orm_get_studio(session, studio_id)
+    text = f"QR код для записи в студию:\n<b>{studio.name if studio.title == '' else studio.title}</b>"
+    to_studios_list_kb = InlineKeyboardMarkup(inline_keyboard=([[
+        InlineKeyboardButton(text="Назад",callback_data=f"studio_card:{studio.id}:{query}")
+    ]]))
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await callback.message.answer_photo(studio.qr_img, caption=text, reply_markup=to_studios_list_kb)

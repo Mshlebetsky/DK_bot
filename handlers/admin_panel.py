@@ -1,4 +1,6 @@
 import logging
+
+
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, or_f
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -7,9 +9,10 @@ from aiogram.fsm.context import FSMContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
+from database.engine import drop_table_via_script
 from filter.filter import ChatTypeFilter, IsAdmin, IsEditor, IsSuperAdmin, get_user_role
 from data.text import admin_welcome
-from database.models import Admin, Users
+from database.models import Admin, Users, Studios
 from handlers.notification import send_event_reminders, notify_all_users
 from logic.cmd_list import private
 
@@ -281,3 +284,8 @@ async def notify_confirm(callback: CallbackQuery, state: FSMContext, bot: Bot, s
     await notify_all_users(bot, session, text, img)
     await callback.message.answer("✅ Уведомление отправлено!")
     await callback.answer()
+
+
+@admin_router.message(Command("drop_table"))
+async def drop_table(message: types.Message):
+    await drop_table_via_script(message)

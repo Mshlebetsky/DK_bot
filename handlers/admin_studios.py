@@ -5,6 +5,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import or_f, Command
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import (
@@ -58,9 +59,67 @@ def get_admin_studios_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text="✏️ Изменить студию", callback_data="edit_studio")],
         [InlineKeyboardButton(text="🗑 Удалить студию", callback_data="delete_studio")],
         [InlineKeyboardButton(text="🔄 Обновить все студии", callback_data="update_all_studios")],
+        # [InlineKeyboardButton(text="Cинхронизировать всё", callback_data="delete_all_unlocked")],
         [InlineKeyboardButton(text="🛠 В панель администратора", callback_data="admin_panel")],
     ]
     return InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+PER_PAGE = 10  # количество студий на страницу
+
+def get_studios_keyboard(studios, page: int = 0):
+
+    """Возвращает inline-клавиатуру со студиями по страницам"""
+
+    studios = sorted(studios, key=lambda s: s.name.lower())
+
+    builder = InlineKeyboardBuilder()
+    start = page * PER_PAGE
+    end = start + PER_PAGE
+    for st in studios[start:end]:
+        builder.button(text=st.name, callback_data=f"edit_studio_{st.id}")
+    builder.button(text="🛠В меню управления", callback_data=f"edit_studios_panel")
+    builder.adjust(1)
+
+    # пагинация
+    if page > 0:
+        builder.button(text="⬅️ Назад", callback_data=f"studios_page_{page-1}")
+    if end < len(studios):
+        builder.button(text="Вперёд ➡️", callback_data=f"studios_page_{page+1}")
+
+    return builder.as_markup()
+
+
+def get_delete_studios_keyboard(studios, page: int = 0):
+    """
+    Формирует inline-клавиатуру для удаления студий с пагинацией
+    """
+    studios = sorted(studios, key=lambda s: s.name.lower())
+
+    builder = InlineKeyboardBuilder()
+    start = page * PER_PAGE
+    end = start + PER_PAGE
+
+    for st in studios[start:end]:
+        builder.button(
+            text=f"🗑 {st.name}",
+            callback_data=f"delete_studio_{st.id}"
+        )
+    builder.button(text="В меню управления", callback_data=f"edit_studios_panel")
+    builder.adjust(1)
+
+    # Кнопки пагинации
+    if page > 0:
+        builder.button(text="⬅️ Назад", callback_data=f"delete_page_{page-1}")
+    if end < len(studios):
+        builder.button(text="Вперёд ➡️", callback_data=f"delete_page_{page+1}")
+
+    return builder.as_markup()
+
+def back_kb():
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="Назад в меню управления",callback_data="edit_studios_panel")
+    ]])
 
 
 # --- Admin Panel ---
@@ -72,7 +131,8 @@ async def admin_studios_menu(message: Message):
 
 
 @admin_studios_router.callback_query(F.data == "edit_studios_panel")
-async def admin_studios_panel(callback: CallbackQuery):
+async def admin_studios_panel(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     logger.info("Переход в меню управления студиями (user_id=%s)", callback.from_user.id)
     await callback.message.edit_text("Меню управления студиями:", reply_markup=get_admin_studios_kb())
 
@@ -82,7 +142,7 @@ async def admin_studios_panel(callback: CallbackQuery):
 async def add_studio_start(callback: CallbackQuery, state: FSMContext):
     logger.info("Начало добавления студии (user_id=%s)", callback.from_user.id)
     await state.set_state(AddStudioFSM.name)
-    await callback.message.answer("Введите название студии:")
+    await callback.message.answer("Введите название студии:", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.name)
@@ -90,7 +150,7 @@ async def add_studio_title(message: Message, state: FSMContext):
     await state.update_data(title=message.text)
     logger.debug("Название студии: %s", message.text)
     await state.set_state(AddStudioFSM.description)
-    await message.answer("Введите описание студии:")
+    await message.answer("Введите описание студии:", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.description)
@@ -98,7 +158,7 @@ async def add_studio_description(message: Message, state: FSMContext):
     await state.update_data(description=message.text)
     logger.debug("Описание студии добавлено")
     await state.set_state(AddStudioFSM.teacher)
-    await message.answer("Введите имя преподавателя (или '-' если нет):")
+    await message.answer("Введите имя преподавателя (или '-' если нет):", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.teacher)
@@ -106,7 +166,7 @@ async def add_studio_teacher(message: Message, state: FSMContext):
     await state.update_data(teacher=message.text)
     logger.debug("Преподаватель: %s", message.text)
     await state.set_state(AddStudioFSM.cost)
-    await message.answer("Введите стоимость (0 если бесплатно):")
+    await message.answer("Введите стоимость (0 если бесплатно):", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.cost)
@@ -121,7 +181,7 @@ async def add_studio_cost(message: Message, state: FSMContext):
         return
 
     await state.set_state(AddStudioFSM.age)
-    await message.answer("Введите возрастную категорию (например, '6-12'):")
+    await message.answer("Введите возрастную категорию (например, '6-12'):", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.age)
@@ -129,7 +189,7 @@ async def add_studio_age(message: Message, state: FSMContext):
     await state.update_data(age=message.text)
     logger.debug("Возраст: %s", message.text)
     await state.set_state(AddStudioFSM.category)
-    await message.answer("Введите категорию студии:")
+    await message.answer("Введите категорию студии:", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.category)
@@ -137,7 +197,7 @@ async def add_studio_category(message: Message, state: FSMContext):
     await state.update_data(category=message.text.lower())
     logger.debug("Категория: %s", message.text.lower())
     await state.set_state(AddStudioFSM.qr_img)
-    await message.answer("Отправьте ссылку на QR-картинку (или '-' если нет):")
+    await message.answer("Отправьте ссылку на QR-картинку (или '-' если нет):", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.qr_img)
@@ -146,7 +206,7 @@ async def add_studio_qr_img(message: Message, state: FSMContext):
     await state.update_data(qr_img=qr_img)
     logger.debug("QR-img: %s", qr_img)
     await state.set_state(AddStudioFSM.img)
-    await message.answer("Отправьте ссылку на изображение студии (или '-' если нет):")
+    await message.answer("Отправьте ссылку на изображение студии (или '-' если нет):", reply_markup=back_kb())
 
 
 @admin_studios_router.message(AddStudioFSM.img)
@@ -168,20 +228,26 @@ async def add_studio_img(message: Message, state: FSMContext, session: AsyncSess
 
 # --- Edit Studio ---
 @admin_studios_router.callback_query(F.data == "edit_studio")
-async def edit_studio_start(callback: CallbackQuery, session: AsyncSession):
+async def edit_studio_start(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     studios = await orm_get_studios(session)
     if not studios:
-        logger.warning("Попытка редактировать студии, но список пуст")
         await callback.message.answer("❌ Нет студий для изменения.")
         return
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=st.name, callback_data=f"edit_studio_{st.id}")]
-            for st in studios
-        ]
-    )
+    # сохраняем список студий в состояние, чтобы при листании не ходить в БД
+    await state.update_data(studios=[{"id": s.id, "name": s.name} for s in studios])
+
+    kb = get_studios_keyboard(studios, page=0)
     await callback.message.answer("Выберите студию для редактирования:", reply_markup=kb)
+
+
+@admin_studios_router.callback_query(F.data.startswith("studios_page_"))
+async def studios_page(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    studios = [type("Obj", (), s) for s in data["studios"]]  # превращаем dict обратно в объекты
+    page = int(callback.data.split("_")[-1])
+    kb = get_studios_keyboard(studios, page=page)
+    await callback.message.edit_reply_markup(reply_markup=kb)
 
 
 @admin_studios_router.callback_query(F.data.startswith("edit_studio_"))
@@ -191,23 +257,27 @@ async def edit_studio_choose(callback: CallbackQuery, state: FSMContext):
     await state.set_state(EditStudioFSM.field)
     logger.info("Редактирование студии id=%s", studio_id)
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=label, callback_data=f"field_{field}")]
-            for label, field in [
-                ("Название", "title"),
-                ("Описание", "description"),
-                ("Преподаватель", "teacher"),
-                ("Стоимость", "cost"),
-                ("Возраст", "age"),
-                ("Категория", "category"),
-                ("QR", "qr_img"),
-                ("Изображение", "img"),
-                ("Запретить автоматическое изменение студии(да/нет", "lock_changes")
-
-            ]
+    buttons = [
+        [InlineKeyboardButton(text=label, callback_data=f"field_{field}")]
+        for label, field in [
+            ("Название", "title"),
+            ("Описание", "description"),
+            ("Преподаватель", "teacher"),
+            ("Стоимость", "cost"),
+            ("Возраст", "age"),
+            ("Категория", "category"),
+            ("QR", "qr_img"),
+            ("Изображение", "img"),
+            ("Запретить автоматическое изменение студии(да/нет)", "lock_changes"),
         ]
+    ]
+
+    # добавляем новую кнопку после генератора
+    buttons.append(
+        [InlineKeyboardButton(text="⬅ Назад", callback_data=f"edit_studio")]
     )
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+
     await callback.message.answer("Выберите поле для изменения:", reply_markup=kb)
 
 
@@ -253,6 +323,7 @@ async def edit_studio_value(message: Message, state: FSMContext, session: AsyncS
             return
 
     try:
+        await orm_update_studio(session, studio_id, "lock_changes", True)
         await orm_update_studio(session, studio_id, field, value)
         logger.info("Обновлено поле %s у студии id=%s", field, studio_id)
         await message.answer("✅ Студия успешно изменена!", reply_markup=get_admin_studios_kb())
@@ -265,20 +336,28 @@ async def edit_studio_value(message: Message, state: FSMContext, session: AsyncS
 
 # --- Delete Studio ---
 @admin_studios_router.callback_query(F.data == "delete_studio")
-async def delete_studio_start(callback: CallbackQuery, session: AsyncSession):
+async def delete_studio_start(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
     studios = await orm_get_studios(session)
     if not studios:
-        logger.warning("Попытка удалить студии, но список пуст")
         await callback.message.answer("❌ Нет студий для удаления.")
         return
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=st.name, callback_data=f"delete_studio_{st.id}")]
-            for st in studios
-        ]
-    )
+    # Сохраняем список в state
+    await state.update_data(delete_studios=[{"id": s.id, "name": s.name} for s in studios])
+
+    kb = get_delete_studios_keyboard(studios, page=0)
     await callback.message.answer("Выберите студию для удаления:", reply_markup=kb)
+
+
+@admin_studios_router.callback_query(F.data.startswith("delete_page_"))
+async def delete_studios_page(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    studios = [type("Obj", (), s) for s in data["delete_studios"]]  # восстанавливаем объекты
+    page = int(callback.data.split("_")[-1])
+
+    kb = get_delete_studios_keyboard(studios, page=page)
+    await callback.message.edit_reply_markup(reply_markup=kb)
+
 
 
 @admin_studios_router.callback_query(F.data.startswith("delete_studio_"))
@@ -307,9 +386,31 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
         return
 
     updated, added = 0, 0
+
+
+    try:
+        studios = await orm_get_studios(session)
+        deleted_count = 0
+
+        for st in studios:
+            # удаляем только если lock_changes == False (или None)
+            if not getattr(st, "lock_changes", False):
+                try:
+                    await orm_delete_studio(session, st.id)
+                    deleted_count += 1
+                except Exception as e:
+                    # логируем, но не прерываем цикл
+                    logger.exception("Ошибка при массовом удалении студии id=%s: %s", st.id, e)
+
+        await callback.message.answer(
+            f"🗑 Удалено студий: {deleted_count}\n"
+            f"✅ Защищённые остались на месте."
+        )
+    except:
+        logger.info("Не удалось удалить студии")
     for name, values in data.items():
         try:
-            description, cost, age, img, qr_img, teacher, category = values
+            description, cost, second_cost, age, img, qr_img, teacher, category = values
         except ValueError:
             logger.warning("Пропущена студия %s: неверный формат данных", name)
             await callback.message.answer(f"⚠️ Пропущена студия {name}: неверный формат данных")
@@ -321,6 +422,7 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
                 if (studio.lock_changes == False):
                     await orm_update_studio(session, studio.id, "description", description)
                     await orm_update_studio(session, studio.id, "cost", int(cost))
+                    await orm_update_studio(session, studio.id, "second_cost", second_cost)
                     await orm_update_studio(session, studio.id, "age", age)
                     await orm_update_studio(session, studio.id, "img", img)
                     await orm_update_studio(session, studio.id, "qr_img", qr_img)
@@ -334,6 +436,7 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
                     "description": description,
                     "teacher": teacher,
                     "cost": int(cost),
+                    "second_cost": second_cost,
                     "age": age,
                     "category": category,
                     "qr_img": qr_img,

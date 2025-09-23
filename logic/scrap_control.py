@@ -116,7 +116,7 @@ async def update_studios(session):
     updated, added = 0, 0
     for name, values in data.items():
         try:
-            description, cost, age, img, qr_img, teacher, category = values
+            description, cost, second_cost, age, img, qr_img, teacher, category = values
         except ValueError:
             logger.warning("⚠ Ошибка формата студии: %s", name)
             continue
@@ -124,9 +124,10 @@ async def update_studios(session):
         studio = await orm_get_studio_by_name(session, name)
         if studio:
             if studio.lock_changes == False:
-                logger.info(f"Начато изменение студии {name}")
+                logger.debug(f"Начато изменение студии {name}")
                 await orm_update_studio(session, studio.id, "description", description)
                 await orm_update_studio(session, studio.id, "cost", int(cost))
+                await orm_update_studio(session, studio.id, "second_cost", second_cost)
                 await orm_update_studio(session, studio.id, "age", age)
                 await orm_update_studio(session, studio.id, "img", img)
                 await orm_update_studio(session, studio.id, "qr_img", qr_img)
@@ -139,6 +140,7 @@ async def update_studios(session):
                 "description": description,
                 "teacher": teacher,
                 "cost": int(cost),
+                "second_cost": second_cost,
                 "age": age,
                 "category": category,
                 "qr_img": qr_img,
@@ -165,6 +167,7 @@ async def scrap_everything(bot, notify_users: bool = True):
     notify_users=True → рассылает новые материалы подписчикам
     Возвращает сводный отчёт
     """
+    logger.info("Начато плановое обновление")
     report = []
     async with Session() as session:
         # --- События ---

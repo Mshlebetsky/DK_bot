@@ -133,6 +133,7 @@ async def main():
     """Главная точка входа."""
     while True:
         try:
+
             dp.startup.register(on_startup)
             dp.shutdown.register(on_shutdown)
 

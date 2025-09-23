@@ -14,7 +14,7 @@ from logic.scrap_events import update_all_events
 from logic.scrap_news import update_all_news
 from logic.scrap_studios import update_all_studios
 
-logger = logging.getLogger("bot.updaters")
+logger = logging.getLogger(__name__)
 
 
 async def update_events(session, notify_users=False, bot=None):

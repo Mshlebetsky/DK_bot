@@ -1,10 +1,14 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+import logging
+
 import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import undetected_chromedriver as uc
 import re
+
+
+logger = logging.getLogger(__name__)
+
 
 def extract_numbers(text: str) -> list[int]:
     """
@@ -49,7 +53,7 @@ def update_all_studios():
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
     time.sleep(2)
 
-
+    error_text = ''
 
     elements_parent = driver.find_element(By.CLASS_NAME,'tabs-content').find_element(By.CLASS_NAME,'tab-item.tab-all').find_element(By.CLASS_NAME,'flex')
     items = elements_parent.find_elements(By.CLASS_NAME,f'services__item')
@@ -72,8 +76,9 @@ def update_all_studios():
 
             item.find_element(By.CLASS_NAME,'services__item-info').click()
 
-        except:
+        except Exception as e:
             error_counter +=1
+            logger.warning(f"ошибка на {counter} студии: картинка/имя/платно: \n{e}")
             continue
         time.sleep(2)
 
@@ -81,11 +86,15 @@ def update_all_studios():
             title = driver.find_element(By.CLASS_NAME,'title').text
         except:
             error_counter +=1
+            error_text += e
+            logger.warning(f"ошибка на {counter} студии: Имя \n{e}")
             continue
         try: # ------- GET description
             description = driver.find_element(By.CLASS_NAME,'modal_more_text').text
         except:
             error_counter +=1
+            error_text += e
+            logger.warning(f"ошибка на {counter} студии: Описание \n{e}")
             continue
         try: #--------------Get teacher / age / cost
             more_info = driver.find_elements(By.CLASS_NAME,'modal_more_info_text')
@@ -101,14 +110,19 @@ def update_all_studios():
                 age = driver.find_elements(By.CLASS_NAME,'modal_more_info_text')[-1].text
             except:
                 error_counter+=1
+                error_text += e
+                logger.warning(f"ошибка на {counter} студии: Преподаватель \n{e}")
                 continue
         except:
-            error_counter +=1
+            error_text += e
+            logger.warning(f"ошибка на {counter} студии: Хз что это \n{e}")
             continue
         try: #--------------Get QR_img
             qr_img = driver.find_element(By.CLASS_NAME,'about__slider').find_elements(By.TAG_NAME,'a')[0].get_attribute('href')
         except:
             error_counter += 1
+            logger.warning(f"ошибка на {counter} студии: QR \n{e}")
+
         category = 'unknown'
 
         time.sleep(0.5)
@@ -141,6 +155,8 @@ def update_all_studios():
                     else:
                         data[studios][-1] += category.text.lower()
             except:
+                logger.warning(f"ошибка на категории {category} : \n{e}")
+
                 error_counter +=1
     except:
         pass
@@ -148,7 +164,7 @@ def update_all_studios():
     elapsed_time = end_time - start_time
     text = f"Обновление завершено за {round(elapsed_time)} сек"
     if error_counter > 0:
-        text += f'\nБыло обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении'
+        text += f'\nБыло обновлено {len(data)} студий\nБыло {error_counter} ошибок при выполнении\n'
     driver.close()
     driver.quit()
 

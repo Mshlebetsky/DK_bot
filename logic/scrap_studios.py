@@ -84,14 +84,14 @@ def update_all_studios():
 
         try: # -------- GET name
             title = driver.find_element(By.CLASS_NAME,'title').text
-        except:
+        except Exception as e:
             error_counter +=1
             error_text += e
             logger.warning(f"ошибка на {counter} студии: Имя \n{e}")
             continue
         try: # ------- GET description
             description = driver.find_element(By.CLASS_NAME,'modal_more_text').text
-        except:
+        except Exception as e:
             error_counter +=1
             error_text += e
             logger.warning(f"ошибка на {counter} студии: Описание \n{e}")
@@ -108,18 +108,18 @@ def update_all_studios():
                 cost = 1
             try:
                 age = driver.find_elements(By.CLASS_NAME,'modal_more_info_text')[-1].text
-            except:
+            except Exception as e:
                 error_counter+=1
                 error_text += e
                 logger.warning(f"ошибка на {counter} студии: Преподаватель \n{e}")
                 continue
-        except:
+        except Exception as e:
             error_text += e
             logger.warning(f"ошибка на {counter} студии: Хз что это \n{e}")
             continue
         try: #--------------Get QR_img
             qr_img = driver.find_element(By.CLASS_NAME,'about__slider').find_elements(By.TAG_NAME,'a')[0].get_attribute('href')
-        except:
+        except Exception as e:
             error_counter += 1
             logger.warning(f"ошибка на {counter} студии: QR \n{e}")
 
@@ -154,7 +154,7 @@ def update_all_studios():
                         data[studios][-1] = category.text.lower()
                     else:
                         data[studios][-1] += category.text.lower()
-            except:
+            except Exception as e:
                 logger.warning(f"ошибка на категории {category} : \n{e}")
 
                 error_counter +=1

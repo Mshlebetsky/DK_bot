@@ -14,8 +14,8 @@ services:
       - yauza_db:/app/data
     networks:
       - botnet
-#    environment:
-#      - DB_LITE=sqlite+aiosqlite:///data/bot.sqlite3
+    environment:
+      - DB_LITE=sqlite+aiosqlite:///data/bot.sqlite3
 
 volumes:
   yauza_db:

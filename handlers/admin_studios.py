@@ -15,6 +15,7 @@ from database.orm_query import (
     orm_get_studios,
     orm_get_studio_by_name, orm_get_studio,
 )
+from logic.helper import Big_litter_start
 from logic.scrap_studios import update_all_studios
 from filter.filter import IsSuperAdmin, IsEditor
 
@@ -77,7 +78,7 @@ def get_studios_keyboard(studios, page: int = 0):
     start = page * PER_PAGE
     end = start + PER_PAGE
     for st in studios[start:end]:
-        builder.button(text=st.name, callback_data=f"edit_studio_{st.id}")
+        builder.button(text=(Big_litter_start(st.name) if st.title =='' else st.title), callback_data=f"edit_studio_{st.id}")
     builder.button(text="🛠В меню управления", callback_data=f"edit_studios_panel")
     builder.adjust(1)
 
@@ -99,7 +100,7 @@ def get_delete_studios_keyboard(studios, page: int = 0):
     builder = InlineKeyboardBuilder()
     start = page * PER_PAGE
     end = start + PER_PAGE
-
+    builder.button(text="🔥Удалить всё, кроме защищенных", callback_data=f"delete_all_studios")
     for st in studios[start:end]:
         builder.button(
             text=f"🗑 {st.name}",
@@ -118,6 +119,7 @@ def get_delete_studios_keyboard(studios, page: int = 0):
 
 def back_kb():
     return InlineKeyboardMarkup(inline_keyboard=[[
+
         InlineKeyboardButton(text="Назад в меню управления",callback_data="edit_studios_panel")
     ]])
 
@@ -293,7 +295,7 @@ async def edit_studio_field(callback: CallbackQuery, state: FSMContext, session:
         current_value = getattr(event, field, None)
     else:
         if event.title == '':
-            current_value = getattr(event, 'name', None)
+            current_value = Big_litter_start(getattr(event, 'name', None))
         else:
             current_value = getattr(event, 'title', None)
 
@@ -385,29 +387,11 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
         await callback.message.answer(f"❌ Ошибка при вызове парсера: {e}")
         return
 
+
+
+
     updated, added = 0, 0
 
-
-    try:
-        studios = await orm_get_studios(session)
-        deleted_count = 0
-
-        for st in studios:
-            # удаляем только если lock_changes == False (или None)
-            if not getattr(st, "lock_changes", False):
-                try:
-                    await orm_delete_studio(session, st.id)
-                    deleted_count += 1
-                except Exception as e:
-                    # логируем, но не прерываем цикл
-                    logger.exception("Ошибка при массовом удалении студии id=%s: %s", st.id, e)
-
-        await callback.message.answer(
-            f"🗑 Удалено студий: {deleted_count}\n"
-            f"✅ Защищённые остались на месте."
-        )
-    except:
-        logger.info("Не удалось удалить студии")
     for name, values in data.items():
         try:
             description, cost, second_cost, age, img, qr_img, teacher, category = values
@@ -417,17 +401,27 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
             continue
 
         try:
+            studios = await orm_get_studios(session)
             studio = await orm_get_studio_by_name(session, name)
             if studio:
                 if (studio.lock_changes == False):
-                    await orm_update_studio(session, studio.id, "description", description)
-                    await orm_update_studio(session, studio.id, "cost", int(cost))
-                    await orm_update_studio(session, studio.id, "second_cost", second_cost)
-                    await orm_update_studio(session, studio.id, "age", age)
-                    await orm_update_studio(session, studio.id, "img", img)
-                    await orm_update_studio(session, studio.id, "qr_img", qr_img)
-                    await orm_update_studio(session, studio.id, "teacher", teacher)
-                    await orm_update_studio(session, studio.id, "category", category)
+                    try:
+                        await orm_delete_studio(session, studio.id)
+                    except Exception as e:
+                        logger.exception("Ошибка при массовом удалении студии id=%s: %s", studio.id, e)
+
+                    new_data = {
+                        "name": name,
+                        "description": description,
+                        "teacher": teacher,
+                        "cost": int(cost),
+                        "second_cost": second_cost,
+                        "age": age,
+                        "category": category,
+                        "qr_img": qr_img,
+                        "img": img,
+                    }
+                    await orm_add_studio(session, new_data)
                     updated += 1
                     logger.debug("Обновлена студия %s", name)
             else:
@@ -455,3 +449,28 @@ async def update_all_studios_handler(callback: CallbackQuery, session: AsyncSess
         f"➕ Добавлено: {added}",
         reply_markup=get_admin_studios_kb()
     )
+
+
+@admin_studios_router.callback_query(F.data == "delete_all_studios")
+async def delete_all_studios_handler(callback: CallbackQuery, session: AsyncSession):
+
+    try:
+        studios = await orm_get_studios(session)
+        deleted_count = 0
+
+        for st in studios:
+            # удаляем только если lock_changes == False (или None)
+            if not getattr(st, "lock_changes", False):
+                try:
+                    await orm_delete_studio(session, st.id)
+                    deleted_count += 1
+                except Exception as e:
+                    # логируем, но не прерываем цикл
+                    logger.exception("Ошибка при массовом удалении студии id=%s: %s", st.id, e)
+
+        await callback.message.answer(
+            f"🗑 Удалено студий: {deleted_count}\n"
+            f"✅ Защищённые остались на месте.", reply_markup=back_kb()
+        )
+    except:
+        logger.info("Не удалось удалить студии")

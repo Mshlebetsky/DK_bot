@@ -7,7 +7,7 @@ from database import orm_query
 from database.orm_query import (
     orm_update_event, orm_add_event,
     orm_update_news, orm_add_news,
-    orm_update_studio, orm_add_studio, orm_get_studio_by_name
+    orm_update_studio, orm_add_studio, orm_get_studio_by_name, orm_delete_studio
 )
 from database.engine import Session
 from logic.scrap_events import update_all_events
@@ -125,14 +125,25 @@ async def update_studios(session):
         if studio:
             if studio.lock_changes == False:
                 logger.debug(f"Начато изменение студии {name}")
-                await orm_update_studio(session, studio.id, "description", description)
-                await orm_update_studio(session, studio.id, "cost", int(cost))
-                await orm_update_studio(session, studio.id, "second_cost", second_cost)
-                await orm_update_studio(session, studio.id, "age", age)
-                await orm_update_studio(session, studio.id, "img", img)
-                await orm_update_studio(session, studio.id, "qr_img", qr_img)
-                await orm_update_studio(session, studio.id, "teacher", teacher)
-                await orm_update_studio(session, studio.id, "category", category)
+                try:
+                    await orm_delete_studio(session, studio.id)
+                except Exception as e:
+                    logger.exception("Ошибка при массовом удалении студии id=%s: %s", studio.id, e)
+
+                new_data = {
+                    "name": name,
+                    "description": description,
+                    "teacher": teacher,
+                    "cost": int(cost),
+                    "second_cost": second_cost,
+                    "age": age,
+                    "category": category,
+                    "qr_img": qr_img,
+                    "img": img,
+                }
+                await orm_add_studio(session, new_data)
+                updated += 1
+                logger.debug("Обновлена студия %s", name)
                 updated += 1
         else:
             new_data = {

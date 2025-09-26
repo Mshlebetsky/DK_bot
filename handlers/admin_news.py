@@ -7,6 +7,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import or_f, Command
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -59,6 +60,40 @@ def get_admin_news_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+PER_PAGE = 10
+
+def get_news_keyboard(news_list, page: int = 0):
+    """Клавиатура для редактирования новостей по страницам."""
+    news_list = sorted(news_list, key=lambda n: n.name.lower())
+    builder = InlineKeyboardBuilder()
+    start, end = page * PER_PAGE, page * PER_PAGE + PER_PAGE
+    for n in news_list[start:end]:
+        builder.button(text=n.name, callback_data=f"edit_news_{n.id}")
+    builder.button(text="🛠В меню управления", callback_data="edit_news_panel")
+    builder.adjust(1)
+    if page > 0:
+        builder.button(text="⬅️ Назад", callback_data=f"news_page_{page-1}")
+    if end < len(news_list):
+        builder.button(text="Вперёд ➡️", callback_data=f"news_page_{page+1}")
+    return builder.as_markup()
+
+def get_delete_news_keyboard(news_list, page: int = 0):
+    """Клавиатура для удаления новостей по страницам."""
+    news_list = sorted(news_list, key=lambda n: n.name.lower())
+    builder = InlineKeyboardBuilder()
+    start, end = page * PER_PAGE, page * PER_PAGE + PER_PAGE
+    for n in news_list[start:end]:
+        # используем явный префикс delete_news_item_ чтобы не конфликтовать с pagination
+        builder.button(text=f"🗑 {n.name}", callback_data=f"delete_news_item_{n.id}")
+    builder.button(text="В меню управления", callback_data="edit_news_panel")
+    builder.adjust(1)
+    if page > 0:
+        builder.button(text="⬅️ Назад", callback_data=f"delete_news_page_{page-1}")
+    if end < len(news_list):
+        builder.button(text="Вперёд ➡️", callback_data=f"delete_news_page_{page+1}")
+    return builder.as_markup()
+
+
 # --- Start Menu ---
 @admin_news_router.message(Command("edit_news"))
 async def admin_news_menu(message: Message):
@@ -101,7 +136,8 @@ async def add_news_img(message: Message, state: FSMContext, session: AsyncSessio
     img = None if message.text == "-" else message.text
     await state.update_data(img=img)
     data = await state.get_data()
-
+    if not data.get("name"):
+        data["name"] = data.get("title")
     await orm_add_news(session, data)
     logger.info("News added: %s", data["title"])
 
@@ -115,7 +151,7 @@ async def add_news_announce(message: Message, state: FSMContext, session: AsyncS
     data = await state.get_data()
 
     if notify:
-        text = f"📰 Новая новость!\n\n<b>{data['title']}</b>\n\n{data['description'][:300]}..."
+        text = f"\n<b>{data['title']}</b>\n\n{data['description'][:300]}..."
         await notify_subscribers(bot, session, f"📰 Обновление в новостях!\n\n{text}", data["img"], type_="news")
         logger.info("News notification sent for: %s", data["title"])
         await message.answer("👍 Уведомление пользователям успешно отправлено", reply_markup=get_admin_news_kb())
@@ -128,16 +164,24 @@ async def add_news_announce(message: Message, state: FSMContext, session: AsyncS
 
 # --- Edit News ---
 @admin_news_router.callback_query(F.data == "edit_news")
-async def edit_news_start(callback: CallbackQuery, session: AsyncSession):
-    news = await orm_get_all_news(session)
-    if not news:
+async def edit_news_start(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
+    news_list = await orm_get_all_news(session)
+    if not news_list:
         await callback.message.answer("❌ Нет новостей для изменения.")
         return
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=n.name, callback_data=f"edit_news_{n.id}")] for n in news
-    ])
+    await state.update_data(news=[{"id": n.id, "name": n.name} for n in news_list])
+    kb = get_news_keyboard(news_list, page=0)
     await callback.message.answer("Выберите новость:", reply_markup=kb)
+
+
+@admin_news_router.callback_query(F.data.startswith("news_page_"))
+async def news_page(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    news_list = [type("Obj", (), n) for n in data["news"]]
+    page = int(callback.data.split("_")[-1])
+    kb = get_news_keyboard(news_list, page=page)
+    await callback.message.edit_reply_markup(reply_markup=kb)
+
 
 
 @admin_news_router.callback_query(F.data.startswith("edit_news_"))
@@ -150,7 +194,8 @@ async def edit_news_choose(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="Название", callback_data="field_title")],
         [InlineKeyboardButton(text="Описание", callback_data="field_description")],
         [InlineKeyboardButton(text="Изображение", callback_data="field_img")],
-        [InlineKeyboardButton(text="Запретить автоматическое изменение новости(да/нет)", callback_data="field_lock_changes")]
+        [InlineKeyboardButton(text="Запретить автоматическое изменение новости(да/нет)", callback_data="field_lock_changes")],
+        [InlineKeyboardButton(text="⬅ Назад", callback_data=f"edit_news_panel")]
     ])
     await state.set_state(EditNewsFSM.field)
     await callback.message.answer("Выберите поле для изменения:", reply_markup=kb)
@@ -203,24 +248,40 @@ async def edit_news_value(message: Message, state: FSMContext, session: AsyncSes
 
 # --- Delete News ---
 @admin_news_router.callback_query(F.data == "delete_news")
-async def delete_news_start(callback: CallbackQuery, session: AsyncSession):
-    news = await orm_get_all_news(session)
-    if not news:
+async def delete_news_start(callback: CallbackQuery, session: AsyncSession, state: FSMContext):
+    news_list = await orm_get_all_news(session)
+    if not news_list:
         await callback.message.answer("❌ Нет новостей для удаления.")
         return
+    await state.update_data(delete_news=[{"id": n.id, "name": n.name} for n in news_list])
+    kb = get_delete_news_keyboard(news_list, page=0)
+    await callback.message.answer("Выберите новость для удаления:", reply_markup=kb)
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=n.name, callback_data=f"delete_news_{n.id}")] for n in news
-    ])
-    await callback.message.answer("Выберите новость:", reply_markup=kb)
+@admin_news_router.callback_query(F.data.startswith("delete_news_page_"))
+async def delete_news_page(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    news_list = [type("Obj", (), n) for n in data["delete_news"]]
+    page = int(callback.data.split("_")[-1])
+    kb = get_delete_news_keyboard(news_list, page=page)
+    await callback.message.edit_reply_markup(reply_markup=kb)
 
 
-@admin_news_router.callback_query(F.data.startswith("delete_news_"))
+@admin_news_router.callback_query(F.data.startswith("delete_news_item_"))
 async def delete_news_confirm(callback: CallbackQuery, session: AsyncSession):
-    news_id = int(callback.data.split("_")[2])
-    await orm_delete_news(session, news_id)
-    logger.info("News %d deleted", news_id)
-    await callback.message.answer("🗑 Новость удалена!", reply_markup=get_admin_news_kb())
+    try:
+        news_id = int(callback.data.split("_")[-1])
+    except (IndexError, ValueError):
+        await callback.message.answer("❌ Неверный идентификатор новости.")
+        return
+
+    try:
+        await orm_delete_news(session, news_id)
+        logger.info("News %d deleted", news_id)
+        await callback.message.answer("🗑 Новость удалена!", reply_markup=get_admin_news_kb())
+    except Exception as e:
+        logger.exception("Ошибка при удалении новости id=%s: %s", news_id, e)
+        await callback.message.answer("❌ Ошибка при удалении новости.")
+
 
 
 # --- Update All News ---

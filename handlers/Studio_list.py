@@ -42,38 +42,36 @@ async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
     """
     Отображение списка студий с учётом фильтра "бесплатные / платные".
     """
-    # await callback.message.answer(f"render func {category}")
-    offset = (page - 1) * STUDIOS_PER_PAGE
-
     # корректная фильтрация: бесплатные — cost == 0, платные — cost > 0
     if is_free:
         cost_filter = (Studios.cost == 0)
     else:
         cost_filter = (Studios.cost > 0)
 
-    # базовый запрос
+    # базовый запрос без offset/limit
     query = select(Studios).where(cost_filter)
-
     if category:
         query = query.where(Studios.category == category)
 
+    # достаём все студии
+    studios = (await session.execute(query)).scalars().all()
 
-    #Сортировка
-    query = query.order_by(func.coalesce(Studios.title, Studios.name))
+    # сортировка по имени без кавычек
+    sorted_studios = sorted(studios, key=sort_key)
 
-    studios = (await session.execute(query.offset(offset).limit(STUDIOS_PER_PAGE))).scalars().all()
+    # считаем страницы
+    total = len(sorted_studios)
+    total_pages = max((total + STUDIOS_PER_PAGE - 1) // STUDIOS_PER_PAGE, 1)
 
-    total_query = select(func.count(Studios.id)).where(cost_filter)
-    if category:
-        total_query = total_query.where(Studios.category == category)
-        total = (await session.execute(total_query)).scalar_one()
-    else:
-        total = (await session.execute(total_query)).scalar_one()
+    # нарезаем нужную страницу
+    start = (page - 1) * STUDIOS_PER_PAGE
+    end = start + STUDIOS_PER_PAGE
+    page_studios = sorted_studios[start:end]
 
-    total_pages = (total + STUDIOS_PER_PAGE - 1) // STUDIOS_PER_PAGE
-
-    if not studios:
-        kb_back = InlineKeyboardMarkup(inline_keyboard=([[InlineKeyboardButton(text="⬅ К категориям", callback_data=f"studios_free_{is_free}")]]))
+    if not page_studios:
+        kb_back = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="⬅ К категориям", callback_data=f"studios_free_{is_free}")
+        ]])
         await callback.message.answer("В этой категории пока нет студий", reply_markup=kb_back)
         await callback.answer()
         return
@@ -82,17 +80,16 @@ async def render_studio_list(callback: CallbackQuery, session: AsyncSession,
     if category:
         text += f"Категория: {category.capitalize()}\n\n"
 
-    # сортируем список студий по отображаемому названию
-    sorted_studios = sorted(studios, key=sort_key)
-
+    # строим клавиатуру по page_studios
     keyboard = [
         [InlineKeyboardButton(
             text=f"{'🆓' if studio.cost == 0 else '💳'} "
                  f"{Big_litter_start(studio.name) if studio.title == '' else studio.title}",
             callback_data=f"studio_card:{studio.id}:{page}_{callback.data}"
         )]
-        for studio in sorted_studios
+        for studio in page_studios
     ]
+
 
     # пагинация
     query = callback.data.split(":")[-1]

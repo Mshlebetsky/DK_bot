@@ -275,6 +275,11 @@ async def events_command(message: Message) -> None:
     await render_category_menu(message)
 
 
+@event_router.callback_query(F.data == "events_new_message")
+async def events_category_handler(callback: CallbackQuery) -> None:
+    await callback.message.answer('Выберите тип мероприятий:', reply_markup=get_category_menu())
+
+
 @event_router.callback_query(F.data == "events")
 async def events_category_handler(callback: CallbackQuery) -> None:
     await render_category_menu(callback)

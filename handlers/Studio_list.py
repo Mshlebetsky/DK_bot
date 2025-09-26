@@ -185,12 +185,15 @@ async def render_studio_detail(callback: CallbackQuery, session: AsyncSession, s
         [InlineKeyboardButton(text="🖼 QR", callback_data=f"qr:{studio.id}:{query}")],
         [InlineKeyboardButton(text="🖍 Записаться в кружок", url="https://dk.mosreg.ru/")]
     ])
-
-    second_cost = f"👥Групповое: {studio.second_cost} руб.'\n"
+    if studio.second_cost == None:
+        prise = f"💰 Стоимость: {studio.cost} руб.\n"
+    else:
+        prise =(f"💰Стоимость: {studio.second_cost} руб.\n"
+                f"👥Групповое: {studio.cost} руб.\n")
     text = (
         f"<b>{studio.name if studio.title == '' else studio.title}</b>\n\n"
         f"👨‍🏫 Преподаватель: {studio.teacher or '—'}\n"
-        f"💰 Стоимость: {studio.cost} руб.\n{'' if (studio.second_cost == None) else second_cost}"
+        f"{prise}"
         f"🎂 Возраст: {studio.age}\n"
         f"🏷 Категория: {studio.category if studio.category != 'unknown' else 'Другое'}\n"
         f"ℹ️ {studio.description or 'Нет описания'}"
@@ -198,11 +201,6 @@ async def render_studio_detail(callback: CallbackQuery, session: AsyncSession, s
 
     await callback.message.answer(text, reply_markup= kb)
 
-
-# @studios_router.callback_query(F.data == "studios")
-# async def studios_callback(callback: CallbackQuery):
-#     # передаём message (не сам callback), чтобы start_fsm_studios использовал метод answer/edit_text
-#     await start_studios(callback.message)
 
 # -----------Обработчики ---------------------
 

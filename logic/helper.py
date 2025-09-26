@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
 import re
@@ -148,3 +151,19 @@ async def safe_edit_message(message: types.Message, text: str, kb: InlineKeyboar
             await message.answer(text, reply_markup=kb, parse_mode="HTML")
         except Exception as inner_e:
             logger.error("Не удалось отправить новое сообщение: %s", inner_e)
+
+
+TEXTS_PATH = Path("texts.json")
+
+
+def load_texts():
+    with open(TEXTS_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+def get_text(key: str) -> str:
+    texts = load_texts()
+    return texts.get(key, "")
+
+def save_texts(data: dict):
+    with open(TEXTS_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)

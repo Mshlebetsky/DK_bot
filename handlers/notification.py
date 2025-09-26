@@ -147,8 +147,8 @@ async def notify_subscribers(bot, session: AsyncSession, text: str, img: str | N
 
     result = await session.execute(select(Users.user_id).where(filter_field == True))
     subscribers = result.scalars().all()
-    kb_news = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗞Новости", callback_data="list_news")]])
-    kb_events = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📆Афиша мероприятий", callback_data="list_events")]])
+    kb_news = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗞 К Новостям", callback_data="list_news")]])
+    kb_events = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🗓 К Афише мероприятий", callback_data='events_new_message')]])
     for user_id in subscribers:
         try:
             try:
@@ -270,3 +270,71 @@ async def notify_all_users(bot, session, text: str, img: str | None = None):
                 )
         except Exception as e:
             logger.warning(f"❌ Не удалось отправить сообщение {user_id}: {e}")
+
+
+
+
+#==============================test_send reminders =================================
+
+
+async def send_event_reminders(bot, session):
+    now = datetime.now().date()
+    two_days = now + timedelta(days=2)
+
+    # выбираем события на ближайшие 2 дня
+    result = await session.execute(
+        select(Events).where(Events.date.between(now, two_days))
+    )
+    events = result.scalars().all()
+
+    if not events:
+        logger.info("Нет событий в ближайшие 2 дня")
+        return
+
+    for event in events:
+        # находим пользователей, отслеживающих событие
+        tracking_users = await session.execute(
+            select(UserEventTracking.user_id).where(UserEventTracking.event_id == event.id)
+        )
+        user_ids = tracking_users.scalars().all()
+
+        if not user_ids:
+            continue
+
+        # считаем разницу в днях
+        days_left = (event.date.date() - now).days
+        if days_left < 0:
+            continue
+        elif days_left == 0:
+            text = (
+                f"🔔 Напоминание!\n\n"
+                f"Уже Сегодня состоится мероприятие:\n\n"
+                f"<b>{event.name}</b>\n"
+                f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
+                f"{(event.description or '')[:200]}..."
+            )
+        else:
+            text = (
+                f"🔔 Напоминание!\n\n"
+                f"Через {days_left} {'день' if days_left == 1 else 'дней'} состоится мероприятие:\n\n"
+                f"<b>{event.name}</b>\n"
+                f"🗓 {event.date:%d.%m.%Y %H:%M}\n\n"
+                f"{(event.description or '')[:200]}..."
+            )
+
+        # рассылаем уведомления
+        for user_id in user_ids:
+            try:
+                if event.img:
+                    try:
+                        await bot.send_photo(user_id, event.img, caption=text, parse_mode="HTML",reply_markup=InlineKeyboardMarkup(
+                            inline_keyboard=[[InlineKeyboardButton(text="📆Афиша мероприятий",
+                                                                   callback_data=f"event_card:{event.id}:{1}:{int(event.is_free)}")]]))
+                    except Exception:
+                        await bot.send_message(user_id, text, parse_mode="HTML")
+                else:
+                    await bot.send_message(user_id, text, parse_mode="HTML")
+
+                logger.info(f"Напоминание отправлено пользователю {user_id} о событии {event.id}")
+            except Exception as e:
+                logger.warning(f"❌ Не удалось отправить {user_id}: {e}")

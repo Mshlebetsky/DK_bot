@@ -1,20 +1,20 @@
 import logging
-
+import json
 
 from aiogram import Router, types, F, Bot
 from aiogram.filters import Command, or_f
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
 
-from database.engine import drop_table_via_script
 from filter.filter import ChatTypeFilter, IsAdmin, IsEditor, IsSuperAdmin, get_user_role
-from data.text import admin_welcome
-from database.models import Admin, Users, Studios
+from database.models import Admin, Users
 from handlers.notification import send_event_reminders, notify_all_users
 from logic.cmd_list import private
+from logic.helper import load_texts, save_texts, get_text
 
 
 # ================== ЛОГИРОВАНИЕ ==================
@@ -61,6 +61,7 @@ async def admin_panel_menu(user: types.User, bot: Bot, session: AsyncSession) ->
 
     if role == "super_admin":
         buttons.append([InlineKeyboardButton(text="Редактировать Администраторов", callback_data="manage_editors")])
+        buttons.append([InlineKeyboardButton(text="Изменить текст вкладок", callback_data="change_fields")])
         buttons.append([InlineKeyboardButton(text="Отправить всем!📢", callback_data="notify_all_start")])
 
     buttons.append([InlineKeyboardButton(text="🏠 В Главное меню", callback_data="main_menu")])
@@ -70,13 +71,13 @@ async def admin_panel_menu(user: types.User, bot: Bot, session: AsyncSession) ->
 @admin_manage_router.message(Command("admin"))
 async def admin_panel(message: types.Message, bot: Bot, session: AsyncSession):
     logger.info(f"User {message.from_user.id} открыл админ-панель")
-    await message.answer(admin_welcome, reply_markup=await admin_panel_menu(message.from_user, bot, session))
+    await message.answer(get_text("admin_welcome"), reply_markup=await admin_panel_menu(message.from_user, bot, session))
 
 
 @admin_manage_router.callback_query(F.data == "admin_panel")
 async def admin_menu_callback(callback: CallbackQuery, bot: Bot, session: AsyncSession):
     logger.info(f"User {callback.from_user.id} вернулся в админ-панель")
-    await callback.message.edit_text(admin_welcome, reply_markup=await admin_panel_menu(callback.from_user, bot, session))
+    await callback.message.edit_text(get_text("admin_welcome"), reply_markup=await admin_panel_menu(callback.from_user, bot, session))
 
 
 # --- Manage editors ---
@@ -286,6 +287,43 @@ async def notify_confirm(callback: CallbackQuery, state: FSMContext, bot: Bot, s
     await callback.answer()
 
 
-@admin_router.message(Command("drop_table"))
-async def drop_table(message: types.Message):
-    await drop_table_via_script(message)
+#Редактирование текста
+# Состояния FSM
+class EditText(StatesGroup):
+    choosing_key = State()
+    editing_value = State()
+
+
+@admin_router.callback_query(F.data == "change_fields")
+async def change_fields(callback: CallbackQuery, state: FSMContext):
+    texts = load_texts()
+    kb = InlineKeyboardBuilder()
+    for key in texts.keys():
+        kb.button(text=key, callback_data=f"edit_text:{key}")
+    kb.button(text="🛠 В Панель администратора", callback_data="admin_panel")
+    kb.adjust(1)
+    await callback.message.answer("Выберите раздел для редактирования:", reply_markup=kb.as_markup())
+    await state.set_state(EditText.choosing_key)
+
+
+# Выбор ключа
+@admin_router.callback_query(F.data.startswith("edit_text:"))
+async def choose_text_key(callback: CallbackQuery, state: FSMContext):
+    key = callback.data.split(":")[1]
+    texts = load_texts()
+    current = texts.get(key, "")
+    await state.update_data(key=key)
+    await callback.message.answer(f"Текущий текст для <b>{key}</b>:\n\n{current}\n\nОтправьте новый текст:")
+    await state.set_state(EditText.editing_value)
+
+# Приём нового значения
+@admin_router.message(EditText.editing_value)
+async def receive_new_value(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    key = data["key"]
+    texts = load_texts()
+    texts[key] = message.text
+    save_texts(texts)
+    await message.answer(f"✅ Текст для <b>{key}</b> обновлён.",
+                         reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Назад",callback_data="change_fields")]]))
+    await state.clear()

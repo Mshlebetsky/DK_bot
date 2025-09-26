@@ -5,8 +5,12 @@ from aiogram.filters import Command
 from aiogram.utils.media_group import MediaGroupBuilder
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from data.text import short_info
 from filter.filter import ChatTypeFilter
+from logic.helper import get_text
+
+
+# short_info = get_text("short_info")
+
 
 # ================== ЛОГИРОВАНИЕ ==================
 
@@ -86,7 +90,7 @@ async def show_hall(
     msg_id: str,
     photos: list[str],
     capacity: str = "",
-    extra_text: str = short_info
+    extra_text: str = ""
 ) -> None:
     """Отображает зал с фото и описанием"""
     try:
@@ -128,7 +132,8 @@ async def show_big_hall(callback: CallbackQuery, bot: Bot) -> None:
             "https://дк-яуза.рф/upload/iblock/411/6w2d08uszkngv2x5fj0s1m5d4j6qap9x.JPG",
             "https://дк-яуза.рф/upload/iblock/2eb/b75klduuthr2exo96w3jjnamuv5n8xmn.jpg"
         ],
-        capacity="848 мест"
+        capacity="848 мест",
+        extra_text=get_text("short_info")
     )
 
 
@@ -147,7 +152,8 @@ async def show_small_hall(callback: CallbackQuery, bot: Bot) -> None:
             "https://дк-яуза.рф/upload/iblock/e68/hi5g190n6w2hrp64t7t7i01oa3o2cwva.jpg",
             "https://дк-яуза.рф/upload/iblock/0aa/jmqkpac422l8422w8ychyitz32heazup.jpg"
         ],
-        capacity="204 места"
+        capacity="204 места",
+        extra_text=get_text("short_info")
     )
 
 
@@ -163,5 +169,6 @@ async def show_dance_hall(callback: CallbackQuery, bot: Bot) -> None:
             "https://дк-яуза.рф/upload/iblock/7d1/o6p930nom2fqpn3pzh3d9dndd9ml0qji.JPG",
             "https://дк-яуза.рф/upload/iblock/a80/ntrw4n887g0rh2twaiykc0fip252onvs.JPG",
             "https://дк-яуза.рф/upload/iblock/ae1/yg5rlae0o0fb8tfxrr2t1wkymtwlp6nd.JPG"
-        ]
+        ],
+        extra_text=get_text("short_info")
     )

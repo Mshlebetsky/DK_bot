@@ -7,12 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database.orm_query import orm_get_user, orm_add_user, orm_last_seen_time_user
 from filter.filter import ChatTypeFilter, get_user_role
-from data.text import contact, help
-from handlers.Event_list import render_event_list
 from handlers.News_list import render_all_news
 from handlers.Serviсes import get_services_keyboard
-# from handlers.Studio_list import render_studio_list
 from handlers.notification import get_subscriptions_kb
+
+from logic.helper import get_text
+
 
 # ================== ЛОГИРОВАНИЕ ==================
 
@@ -110,7 +110,7 @@ async def menu2_(message: types.Message, session: AsyncSession):
 async def help_callback(callback: CallbackQuery, session: AsyncSession):
     logger.info("Пользователь %s запросил помощь", callback.from_user.id)
     try:
-        await callback.message.edit_text(help, reply_markup=await get_main_menu_kb(callback.from_user, session))
+        await callback.message.edit_text(get_text("help"), reply_markup=await get_main_menu_kb(callback.from_user, session))
     except Exception as e:
         logger.warning("Не удалось показать help (callback): %s", e)
 
@@ -119,7 +119,7 @@ async def help_callback(callback: CallbackQuery, session: AsyncSession):
 async def help_command(message: types.Message, session: AsyncSession):
     logger.info("Пользователь %s вызвал команду /help", message.from_user.id)
     try:
-        await message.answer(help, reply_markup=await get_main_menu_kb(message.from_user, session))
+        await message.answer(get_text("help"), reply_markup=await get_main_menu_kb(message.from_user, session))
     except Exception as e:
         logger.warning("Не удалось показать help (command): %s", e)
 
@@ -172,7 +172,7 @@ async def contacts_callback(callback: CallbackQuery, state: FSMContext):
     await state.update_data(location_msg_id=location_msg.message_id)
     logger.info("Сохранено сообщение с локацией %s для пользователя %s", location_msg.message_id, callback.from_user.id)
 
-    await callback.message.edit_text(contact, reply_markup=contact_kb)
+    await callback.message.edit_text(get_text("contact"), reply_markup=contact_kb)
 
 
 @menu2_router.message(Command("contact"))
@@ -188,7 +188,7 @@ async def contacts_command(message: types.Message, state: FSMContext):
             [InlineKeyboardButton(text="🏠 В Главное меню", callback_data="main_menu")],
         ]
     )
-    await message.answer(contact, reply_markup=contact_kb)
+    await message.answer(get_text("contact"), reply_markup=contact_kb)
 
     location_msg = await message.answer_location(55.908752, 37.743256)
     await state.update_data(location_msg_id=location_msg.message_id)
@@ -224,12 +224,3 @@ async def notification_command(message: types.Message, session: AsyncSession):
 
     user = await orm_get_user(session, message.from_user.id)
     await message.answer("Выберите подписки:", reply_markup=get_subscriptions_kb(user))
-
-
-
-
-# # ---------- Афиша ----------
-# @menu2_router.message(Command("events"))
-# async def events_command(message: types.Message, session: AsyncSession):
-#     logger.info("Пользователь %s вызвал команду /events", message.from_user.id)
-#     await render_event_list(message, session, page=1)

@@ -8,8 +8,14 @@ from filter.filter import ChatTypeFilter, check_message, IsSuperAdmin, IsEditor
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.orm_query import  orm_add_user
 from handlers.menu2 import get_main_menu_kb
+from logic.helper import get_text
 
-from data.text import  welcome
+#Подгрузка текста
+
+
+
+welcome = get_text("welcome")
+welcome_text = get_text("welcome_text")
 
 
 # ================== ЛОГИРОВАНИЕ ==================
@@ -48,14 +54,6 @@ async def start_cmd(message: types.Message, session: AsyncSession):
         ]
     )
     await message.answer(f"{welcome}", reply_markup=policy_keyboard, parse_mode="HTML")
-
-
-welcome_text = (
-    f'Привет! На связи я, твоя «Яуза» 💝'
-    f'\nЯ-это путь. Во мне всё движение мира! '
-    f'\nЗдесь, мы вместе окунёмся в водоворот событий и глубоких чувств, чтобы открывать новое-в мире и в себе.'
-    f' Будь со мной в творческом потоке!'
-)
 
 
 @user_private_router.callback_query(F.data == "agree_policy")

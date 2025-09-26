@@ -302,7 +302,17 @@ async def change_fields(callback: CallbackQuery, state: FSMContext):
         kb.button(text=key, callback_data=f"edit_text:{key}")
     kb.button(text="🛠 В Панель администратора", callback_data="admin_panel")
     kb.adjust(1)
-    await callback.message.answer("Выберите раздел для редактирования:", reply_markup=kb.as_markup())
+    help_message = (
+        'Подсказка:\n\n'
+        '\"contact\" - текст для вкладки \"Контакты\"\n'
+        '\"welcome\" - Начальное сообщение для соблюдения 152-ФЗ \"О персональных данных\"\n'
+        '\"welcome_text\" - приветственное сообщение бота\n'
+        '\"admin_welcome\" - сообщение при заходе в панель администратора'
+        '\"help\" - текст для вкладки \"Помощь\"'
+        '\"short_info\" - текст для Аренды помещений\n\n'
+        'Выберите раздел для редактирования:'
+    )
+    await callback.message.answer(help_message, reply_markup=kb.as_markup())
     await state.set_state(EditText.choosing_key)
 
 

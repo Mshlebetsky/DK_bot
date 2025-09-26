@@ -276,7 +276,9 @@ async def edit_event_choose(callback: CallbackQuery, state: FSMContext) -> None:
             [InlineKeyboardButton(text="Описание", callback_data="field_description")],
             [InlineKeyboardButton(text="Ссылка", callback_data="field_link")],
             [InlineKeyboardButton(text="Изображение", callback_data="field_img")],
-            [InlineKeyboardButton(text="Запретить автоматическое изменение события(да/нет)", callback_data="field_lock_changes")]
+            [InlineKeyboardButton(text="Запретить автоматическое изменение события(да/нет)", callback_data="field_lock_changes")],
+            [InlineKeyboardButton(text="⬅ Назад", callback_data=f"edit_event")]
+
         ]
     )
     await state.set_state(EditEventFSM.field)

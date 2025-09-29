@@ -9,7 +9,6 @@ from filter.filter import ChatTypeFilter
 from logic.helper import get_text
 
 
-# short_info = get_text("short_info")
 
 
 # ================== ЛОГИРОВАНИЕ ==================
@@ -89,7 +88,7 @@ async def show_hall(
     hall_name: str,
     msg_id: str,
     photos: list[str],
-    capacity: str = "",
+    description_text: str = "",
     extra_text: str = ""
 ) -> None:
     """Отображает зал с фото и описанием"""
@@ -99,9 +98,7 @@ async def show_hall(
     except Exception as e:
         logger.warning("Не удалось удалить сообщение %s: %s", msg_id, e)
 
-    description = f"<b>{hall_name}</b>\n\n"
-    if capacity:
-        description += f"Вместимость: {capacity}\nКонцерты/Конференции/Спектакли"
+    description = f"<b>{hall_name}</b>\n\n{description_text}"
 
     media_group = MediaGroupBuilder(caption=description)
     for photo in photos:
@@ -119,6 +116,7 @@ async def show_hall(
 # --- Halls ---
 @services_router.callback_query(F.data.startswith("big_hall_"))
 async def show_big_hall(callback: CallbackQuery, bot: Bot) -> None:
+
     await show_hall(
         callback,
         bot,
@@ -132,13 +130,16 @@ async def show_big_hall(callback: CallbackQuery, bot: Bot) -> None:
             "https://дк-яуза.рф/upload/iblock/411/6w2d08uszkngv2x5fj0s1m5d4j6qap9x.JPG",
             "https://дк-яуза.рф/upload/iblock/2eb/b75klduuthr2exo96w3jjnamuv5n8xmn.jpg"
         ],
-        capacity="848 мест",
+        description_text= get_text("big_hall"),
         extra_text=get_text("short_info")
     )
 
 
 @services_router.callback_query(F.data.startswith("small_hall_"))
 async def show_small_hall(callback: CallbackQuery, bot: Bot) -> None:
+
+    text = ""
+
     await show_hall(
         callback,
         bot,
@@ -152,13 +153,16 @@ async def show_small_hall(callback: CallbackQuery, bot: Bot) -> None:
             "https://дк-яуза.рф/upload/iblock/e68/hi5g190n6w2hrp64t7t7i01oa3o2cwva.jpg",
             "https://дк-яуза.рф/upload/iblock/0aa/jmqkpac422l8422w8ychyitz32heazup.jpg"
         ],
-        capacity="204 места",
+        description_text=get_text("small_hall"),
         extra_text=get_text("short_info")
     )
 
 
 @services_router.callback_query(F.data.startswith("dance_hall_"))
 async def show_dance_hall(callback: CallbackQuery, bot: Bot) -> None:
+
+    text =""
+
     await show_hall(
         callback,
         bot,
@@ -170,5 +174,6 @@ async def show_dance_hall(callback: CallbackQuery, bot: Bot) -> None:
             "https://дк-яуза.рф/upload/iblock/a80/ntrw4n887g0rh2twaiykc0fip252onvs.JPG",
             "https://дк-яуза.рф/upload/iblock/ae1/yg5rlae0o0fb8tfxrr2t1wkymtwlp6nd.JPG"
         ],
+        description_text=get_text("ballroom"),
         extra_text=get_text("short_info")
     )

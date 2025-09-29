@@ -79,7 +79,7 @@ async def render_news_card(target: Message | CallbackQuery, session: AsyncSessio
                 await target.answer(text)
             return
 
-        description = news.description or "Нет описания"
+        description = news.description or ""
         short_desc = description[:350] + (
             "<i>… \n\nнажмите на <b>\"Подробнее\"</b> чтобы посмотреть больше</i>"
             if len(description) > 350 else ""
@@ -141,7 +141,7 @@ async def render_news_card(target: Message | CallbackQuery, session: AsyncSessio
 async def render_news_detail(target: Message | CallbackQuery, news: News):
     """Полная карточка новости"""
     try:
-        text = f"<b>{news.name  if news.title == '' else news.name}</b>\n\n{news.description or 'Нет описания'}"
+        text = f"<b>{news.name  if news.title == '' else news.name}</b>\n\n{news.description or ''}"
         kb = InlineKeyboardMarkup(
             inline_keyboard=[
                 [InlineKeyboardButton(text="🔙 Назад", callback_data=f"news_card:{news.id}")],

@@ -309,7 +309,10 @@ async def change_fields(callback: CallbackQuery, state: FSMContext):
         '\"welcome_text\" - приветственное сообщение бота\n'
         '\"admin_welcome\" - сообщение при заходе в панель администратора\n'
         '\"help\" - текст для вкладки \"Помощь\"\n'
-        '\"short_info\" - текст для Аренды помещений\n\n'
+        '\"short_info\" - текст для Аренды помещений\n'
+        '\"big_hall\" - текст для большого зала\n'
+        '\"small_hall\" - текст для малого зала\n'
+        '\"ballroom\" - текст для бального зала\n\n'
         'Выберите раздел для редактирования:'
     )
     await callback.message.answer(help_message, reply_markup=kb.as_markup())

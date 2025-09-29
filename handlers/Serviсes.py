@@ -138,8 +138,6 @@ async def show_big_hall(callback: CallbackQuery, bot: Bot) -> None:
 @services_router.callback_query(F.data.startswith("small_hall_"))
 async def show_small_hall(callback: CallbackQuery, bot: Bot) -> None:
 
-    text = ""
-
     await show_hall(
         callback,
         bot,
@@ -161,7 +159,6 @@ async def show_small_hall(callback: CallbackQuery, bot: Bot) -> None:
 @services_router.callback_query(F.data.startswith("dance_hall_"))
 async def show_dance_hall(callback: CallbackQuery, bot: Bot) -> None:
 
-    text =""
 
     await show_hall(
         callback,

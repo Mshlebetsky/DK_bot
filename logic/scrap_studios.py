@@ -24,21 +24,8 @@ def extract_numbers(text: str) -> list[int]:
 def update_all_studios():
     url = "https://дк-яуза.рф/studii/"
 
-    # options = Options()
-    # options.add_argument("--headless=new")
-    # options.add_argument("--no-sandbox")
-    # options.add_argument("--disable-dev-shm-usage")
-    # options.add_argument("--disable-gpu")
-    # options.add_argument("--window-size=1920,1080")
-    # options.add_argument(
-    #     "user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    #     "AppleWebKit/537.36 (KHTML, like Gecko) "
-    #     "Chrome/120.0.0.0 Safari/537.36"
-    # )
     start_time = time.time()
-    # driver = webdriver.Chrome(options=options)
-    # driver = uc.Chrome(headless=True)
-    # driver = uc.Chrome(options=options, version_main=139)
+
     options = uc.ChromeOptions()
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
@@ -46,7 +33,9 @@ def update_all_studios():
     options.add_argument("--disable-software-rasterizer")
     options.add_argument("--headless=new")
 
-    driver = uc.Chrome(options=options, version_main=139)
+    # driver = uc.Chrome(options=options, version_main=139)
+    driver = uc.Chrome(options=options)
+
     driver.get(url)
     time.sleep(2)
 
